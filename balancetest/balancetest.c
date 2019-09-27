@@ -3,10 +3,10 @@
 #include <math.h>
 
 /* parameters for mass spring */
-const int N = 25;
-const int NSTEP = 1000; /* simulating time steps */
+const int N = 2;
+const int NSTEP = 500; /* simulating time steps */
 const double gamma1 = 0.1;
-const double k = 1.0;
+const double k = 100.0;
 const double l = 1.0;
 double x[N];
 double u[N]; // dx/dt
@@ -46,7 +46,7 @@ int main(int argc, char *argv[]){
   for(n=0;n<NSTEP;n++){
     rk4();
     for(i=0;i<N;i++){
-      sprintf(filename,"./data25/data_point%d.dat",i);
+      sprintf(filename,"./testdata/data_point%d.dat",i);
       fp = fopen(filename,"a"); // is option "w" ok?
       if( fp == NULL ){
         printf("loop count n=%d : cannot open file %s\n",n,filename);
@@ -63,17 +63,14 @@ int main(int argc, char *argv[]){
 
 void init(){
   /* init coordinates of mass points */
-  int root_N = sqrt(N);
   int i=0,j=0;
-  for(i=0;i<root_N;i++){
-    for(j=0;j<root_N;j++){
-      x[root_N*i+j] = j;
-      y[root_N*i+j] = i;
-    }
-  }
+  x[0] = 0.0;
+  x[1] = 1.0;
+  y[0] = 0.0;
+  y[1] = 0.0;
   /* make data files */
   for(i=0;i<N;i++){
-    sprintf(filename,"./data25/data_point%d.dat",i);
+    sprintf(filename,"./testdata/data_point%d.dat",i);
     fp = fopen(filename,"w");
     /* error handling */
     if( fp == NULL ){
@@ -98,7 +95,11 @@ void init(){
 }
 //隣接行列を生成
 void genGraph(){
-  int root_N = sqrt(N);
+  G[0][0] = 0;
+  G[0][1] = 1;
+  G[1][0] = 0;
+  G[1][1] = 0;
+  /*int root_N = sqrt(N);
   int i=0;
   int j=0;
   for(i=0;i<N;i++){
@@ -115,7 +116,7 @@ void genGraph(){
     G[i][i-1] = 1;
     if(i+root_N <= N-1)
     G[i][i+root_N] = 1;
-  }
+  }*/
 }
 //隣接行列の要素出力
 void printGraph(){
@@ -276,16 +277,14 @@ for(i=0;i<N;i++){
     }
     fixed_flag = 0;
   }
-
 }
 
 double f(double *array1, double *array2, int idx1, int idx2){
   //  printf("idx1=%d,idx2=%d\n",idx1,idx2);
   double ans = 0;
   double distance = sqrt( pow((array1[idx1]-array1[idx2]), 2.0) + pow((array2[idx1]-array2[idx2]), 2.0) );
-  // printf("distance=%f\n",distance);
-  //printf("%d:%d distance=%f\n",idx1, idx2, distance);
-  ans = k * ( l* (array1[idx1]-array1[idx2]) / distance + array1[idx2] - array1[idx1]);
+  printf("%d:%d distance=%f\n",idx1, idx2, distance);
+  ans = k * ( 2*l* (array1[idx1]-array1[idx2]) / distance + array1[idx2] - array1[idx1]);
   // printf("f_ans=%f,array1[%d]=%f\n", ans,idx1,array1[idx1]);
   return ans;
 }
