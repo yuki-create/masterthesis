@@ -3,18 +3,21 @@
 #include <math.h>
 
 /* parameters for mass spring */
-const int N = 9; // number of mass points
-const int M = 12; // number of springs (root_N-1)*root_N*2
-const int NSTEP = 500; /* simulating time steps */
+#define N 9 // number of mass points
+#define M 12 // number of springs (root_N-1)*root_N*2
+const int NSTEP = 10000; /* simulating time steps */
 const double gamma1 = 0.001;
 const double k = 100.0;
 const double natu_l = 1.0;
-const char *dirname = "test_getSpringLength";
-const double w_in[] = {3.0};
+const char *dirname = "test_narma2";
+const double w_in[] = {1.0};
+const double dt = 0.01;
+const int T_input = 100; // adjust frequency of input signal
 int fixed_p[] = {}; // index array of fixed points
 int in_p[] = {0}; // index array of input points
 int fixed_num = 0; // number of fixed points (elements of fixed_p)
 int in_num = 0; // number of inputted points (elements of in_p)
+double input[20]; // input timesiries
 double x[N];
 double u[N]; // dx/dt
 double y[N];
@@ -24,9 +27,12 @@ double l[M]; // length of spring at time n*dt as outpus.
 int G[N][N];
 double force_x[N];
 /* variables and parameters for RK4 */
-const double dt = 0.01;
 double ku1[N], ku2[N], ku3[N], ku4[N], kx1[N], kx2[N], kx3[N], kx4[N];
 double kv1[N], kv2[N], kv3[N], kv4[N], ky1[N], ky2[N], ky3[N], ky4[N];
+/* variables for NARMA models */
+double o_nrm2[3]; // NARMA2 output
+double o_nrm10[11]; // NARMA10 output
+double o_nrm20[21]; // NARMA20 output
 /* parameters for file I/O */
 FILE *fp;
 char filename[40];
@@ -35,15 +41,17 @@ void genGraph();
 void dammy_genGraph();
 void printGraph();
 void init();
-void inputSignal(int time_steps);
+void updateInput(int time_steps);
+void updateNarma2();
 void rk4();
 void eular();
 void getSpringLength();
-void test_getSpringLength();
 void exportCoordinates();
 double Fx(double *array1, double *array2, double *array3, int idx1);
 double Fy(double *array1, double *array2, double *array3, int idx1);
 double f(double *array1, double *array2, int idx1, int idx2);
+void test_getSpringLength();
+void test_updateNarma2(int time_steps);
 
 //main(コマンドライン引数の個数，引数を文字列として保存する配列)
 // argv[] = {"./ms", "N", "NSTEP"}
@@ -54,14 +62,14 @@ int main(int argc, char *argv[]){
 
   init();
   genGraph();
-  test_getSpringLength();
   // printGraph();
-  printf("simulating mass-spring system...\n");
+//  printf("simulating mass-spring system...\n");
   for(n=0;n<NSTEP;n++){
-    inputSignal(n); //inputノードに外力を入力
+    updateInput(n); //inputノードに外力を入力
+    updateNarma2();
+    test_updateNarma2(n);
     rk4(); //全ての質点の座標の更新
     getSpringLength(); //系の出力となるばねの長さを求め、配列l[]を更新
-    printf("l[M-1]=%f\n",l[M-1]); //debug
     exportCoordinates(n); //座標のデータをファイル出力
   }
   return (0);
@@ -81,12 +89,24 @@ void init(){
   for(i=0;i<M;i++){
     l[i] = natu_l;
   }
-
   for(i=0;i<N;i++){
     m[i] = 1.0;
     u[i] = 0.0;
     v[i] = 0.0;
     force_x[i] = 0.0;
+  }
+
+  for(i=0;i<20;i++){
+    input[i] = 0.0;
+  }
+  for(i=0;i<3;i++){
+    o_nrm2[i] = 0.0;
+  }
+  for(i=0;i<11;i++){
+    o_nrm10[i] = 0.0;
+  }
+  for(i=0;i<21;i++){
+    o_nrm20[i] = 0.0;
   }
 
   /* make data files */
@@ -98,7 +118,7 @@ void init(){
       printf("cannot open file %s\n",filename);
     }
     else{
-      printf("open file %s\n",filename);
+  //    printf("open file %s\n",filename);
     }
     fprintf(fp,"x[%d] y[%d]\n",i,i);
     fprintf(fp,"%f %f\n",x[i],y[i]); //coordinates at n=0 (t=0)初期値を書き込み
@@ -106,6 +126,7 @@ void init(){
     fclose(fp);
   }
 }
+
 void dammy_genGraph(){
   int root_N = sqrt(N);
   int i=0;
@@ -189,14 +210,33 @@ void exportCoordinates(int n){
   }
 }
 
-void inputSignal(int time_steps){
+void updateInput(int time_steps){
   int i,idx;
-  double t = time_steps*dt;
+  double t = time_steps*dt/T_input;
+  for(i=19;i>0;i--){
+    input[i] = input[i-1];
+  }
+  input[0] = 0.2*sin(2.0*M_PI*2.11*t)*sin(2.0*M_PI*3.73*t)*sin(2.0*M_PI*4.33*t);
+
   for(i=0;i<in_num;i++){
     idx = in_p[i];
-    force_x[idx] = w_in[i]*sin(2.0*M_PI*t); // single sinwave
-  //  force_x[idx] = w_in[i]*sin(2.0*M_PI*2.11*t)*sin(2.0*M_PI*3.73*t)*sin(2.0*M_PI*4.33*t);
+    //force_x[idx] = w_in[i]*sin(2.0*M_PI*t); // single sinwave
+    force_x[idx] = w_in[i]*input[0];
   }
+}
+
+void updateNarma2(){
+  // o_nrm2 = {o(t), o(t-1), o(t-2)}
+  o_nrm2[2] = o_nrm2[1];
+  o_nrm2[1] = o_nrm2[0];
+  // diverged
+  o_nrm2[0] = 0.4 * o_nrm2[1] + 0.4 * o_nrm2[1] * o_nrm2[2] + 0.6 * pow(input[0], 3.0) + 0.1;
+  //not diverged
+  //o_nrm2[0] = 0.1 * o_nrm2[1] + 0.4 * o_nrm2[1] * o_nrm2[2] + 0.6 * pow(input[0], 3.0) + 0.1;
+}
+
+void test_updateNarma2(int time_steps){
+  printf("%d %f %f\n",time_steps,input[0],o_nrm2[0]);
 }
 
 void test_getSpringLength(){

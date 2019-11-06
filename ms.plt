@@ -1,6 +1,6 @@
 NSTEP = 500
 N = 9
-dirname = 'test_getSpringLength'
+dirname = 'test_NARMA2'
 
 set term gif animate optimize delay 4 size 480,360
 set output './'.dirname.'/ms.gif'
