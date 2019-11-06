@@ -9,10 +9,10 @@ const int NSTEP = 10000; /* simulating time steps */
 const double gamma1 = 0.001;
 const double k = 100.0;
 const double natu_l = 1.0;
-const char *dirname = "test_narma2";
+const char *dirname = "test_narma";
 const double w_in[] = {1.0};
-const double dt = 0.01;
-const int T_input = 100; // adjust frequency of input signal
+const double dt = 0.0025;
+const int T_input = 1; // adjust frequency of input signal
 int fixed_p[] = {}; // index array of fixed points
 int in_p[] = {0}; // index array of input points
 int fixed_num = 0; // number of fixed points (elements of fixed_p)
@@ -43,6 +43,8 @@ void printGraph();
 void init();
 void updateInput(int time_steps);
 void updateNarma2();
+void updateNarma10();
+void updateNarma20();
 void rk4();
 void eular();
 void getSpringLength();
@@ -51,7 +53,7 @@ double Fx(double *array1, double *array2, double *array3, int idx1);
 double Fy(double *array1, double *array2, double *array3, int idx1);
 double f(double *array1, double *array2, int idx1, int idx2);
 void test_getSpringLength();
-void test_updateNarma2(int time_steps);
+void test_updateNarma(int time_steps);
 
 //main(コマンドライン引数の個数，引数を文字列として保存する配列)
 // argv[] = {"./ms", "N", "NSTEP"}
@@ -65,9 +67,11 @@ int main(int argc, char *argv[]){
   // printGraph();
 //  printf("simulating mass-spring system...\n");
   for(n=0;n<NSTEP;n++){
+    test_updateNarma(n);
     updateInput(n); //inputノードに外力を入力
     updateNarma2();
-    test_updateNarma2(n);
+    updateNarma10();
+    updateNarma20();
     rk4(); //全ての質点の座標の更新
     getSpringLength(); //系の出力となるばねの長さを求め、配列l[]を更新
     exportCoordinates(n); //座標のデータをファイル出力
@@ -211,10 +215,11 @@ void exportCoordinates(int n){
 }
 
 void updateInput(int time_steps){
-  int i,idx;
+  int i=0;
+  int idx=0;
   double t = time_steps*dt/T_input;
-  for(i=19;i>0;i--){
-    input[i] = input[i-1];
+  for(i=0;i<19;i++){
+    input[19-i] = input[18-i];
   }
   input[0] = 0.2*sin(2.0*M_PI*2.11*t)*sin(2.0*M_PI*3.73*t)*sin(2.0*M_PI*4.33*t);
 
@@ -235,8 +240,28 @@ void updateNarma2(){
   //o_nrm2[0] = 0.1 * o_nrm2[1] + 0.4 * o_nrm2[1] * o_nrm2[2] + 0.6 * pow(input[0], 3.0) + 0.1;
 }
 
-void test_updateNarma2(int time_steps){
-  printf("%d %f %f\n",time_steps,input[0],o_nrm2[0]);
+void updateNarma10(){
+  int i=0;
+  double tmp=0;
+  for(i=0;i<10;i++){
+    o_nrm10[10-i] = o_nrm10[9-i];
+    tmp += o_nrm10[10-i];
+  }
+  o_nrm10[0] = 0.3*o_nrm10[1] + 0.05*o_nrm10[1]*tmp + 1.5*input[9]*input[0] + 0.1;
+}
+
+void updateNarma20(){
+  int i=0;
+  double tmp=0;
+  for(i=0;i<20;i++){
+    o_nrm20[20-i] = o_nrm20[19-i];
+    tmp += o_nrm20[20-i];
+  }
+  o_nrm20[0] = 0.3*o_nrm20[1] + 0.05*o_nrm20[1]*tmp + 1.5*input[19]*input[0] + 0.1;
+}
+
+void test_updateNarma(int time_steps){
+  printf("%d %f %f %f %f\n",time_steps,input[0],o_nrm2[0],o_nrm10[0],o_nrm20[0]);
 }
 
 void test_getSpringLength(){
