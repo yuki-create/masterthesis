@@ -9,7 +9,7 @@ const int NSTEP = 10000; /* simulating time steps */
 const double gamma1 = 0.001;
 const double k = 100.0;
 const double natu_l = 1.0;
-const char *dirname = "test_length";
+const char *dirname = ".";
 const double w_in[] = {1.0};
 const double dt = 0.0025;
 const int T_input = 1; // adjust frequency of input signal
@@ -71,15 +71,15 @@ int main(int argc, char *argv[]){
 //  printf("simulating mass-spring system...\n");
 
    for(n=0;n<NSTEP;n++){
-  //  test_updateNarma(n);
+    test_updateNarma(n);
     updateInput(n); //inputノードに外力を入力
     updateNarma2();
     updateNarma10();
     updateNarma20();
-    rk4(); //全ての質点の座標の更新
-    getSpringLength(); //系の出力となるばねの長さを求め、配列l[]を更新
-    exportCoordinates(n); //座標のデータをファイル出力
-    exportLength(n); //ばねの長さをファイル出力
+  //  rk4(); //全ての質点の座標の更新
+  //  getSpringLength(); //系の出力となるばねの長さを求め、配列l[]を更新
+  //  exportCoordinates(n); //座標のデータをファイル出力
+  //  exportLength(n); //ばねの長さをファイル出力
   }
 
   return (0);
@@ -126,7 +126,7 @@ void init(){
 
   /* make coodinates data files */
   for(i=0;i<N;i++){
-    sprintf(filename1,"./%s/points/point%d.dat",dirname,i);
+    sprintf(filename1,"%s/points/point%d.dat",dirname,i);
     fp1 = fopen(filename1,"w");
     /* error handling */
     if( fp1 == NULL ){
@@ -146,7 +146,7 @@ void init(){
     for(j=looked_idx;j<N;j++){
       if(G[i][j] == 1){
 
-        sprintf(filename2,"./%s/springs/length%d.dat",dirname,arrayl_idx);
+        sprintf(filename2,"%s/springs/length%d.dat",dirname,arrayl_idx);
         fp2 = fopen(filename2,"w");
         /* error handling */
         if( fp2 == NULL ){
@@ -239,7 +239,7 @@ void printGraph(){
 void exportCoordinates(int time_steps){
   int i=0;
   for(i=0;i<N;i++){
-    sprintf(filename1,"./%s/points/point%d.dat",dirname,i);
+    sprintf(filename1,"%s/points/point%d.dat",dirname,i);
     fp1 = fopen(filename1,"a");
     if( fp1 == NULL ){
       printf("loop count n=%d : cannot open file %s\n",time_steps,filename1);
@@ -258,7 +258,7 @@ void exportLength(int time_steps){
   for(i=0;i<N;i++){
     for(j=looked_idx;j<N;j++){
       if(G[i][j] == 1){
-        sprintf(filename2,"./%s/springs/length%d.dat",dirname,arrayl_idx);
+        sprintf(filename2,"%s/springs/length%d.dat",dirname,arrayl_idx);
         fp2 = fopen(filename2,"a");
         if( fp2 == NULL ){
           printf("cannot open file %s\n",filename2);

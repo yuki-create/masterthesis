@@ -14,7 +14,7 @@ do for [n = 0:NSTEP ] {
   t = n*dt
   set label 1 center at screen 0.5,0.9 sprintf("t=%.2f",t)
   # plot n th row in all i th file ( in the same frame )
-  plot for [i=0:N-1] './'.dirname.'/data_point'.i .'.dat' every ::(n+1)::(n+1)
+  plot for [i=0:N-1] './'.dirname.'/points/point'.i .'.dat' every ::(n+1)::(n+1)
 #  if( n%100 == 1 ) print("complete time step %d\n",n+1);
 }
 set out

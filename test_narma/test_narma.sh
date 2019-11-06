@@ -1,7 +1,9 @@
-# msディレクトリ下で ./test_narma/test_narma.sh を実行
-gcc ms.c -o ./test_narma/test_narma
-./test_narma/test_narma > ./test_narma/test_narma.dat
+cd `dirname $0` # change current directry to [test_narma]
+gcc test_narma.c -o test_narma
+mkdir -p ./points
+mkdir -p ./springs
+./test_narma > ./outputs.dat
 gnuplot -persist <<-EOFMarker
-  load "./test_narma/test_narma.plt" ;
+  load "test_narma.plt" ;
   exit ;
 EOFMarker
