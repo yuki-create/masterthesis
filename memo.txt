@@ -2,6 +2,6 @@
 ばねの長さの時系列をファイル出力するexportLength()の実装。
 narmaモデルの波形出力は ms/test_narma/test_narma.sh でできるようにした。
 test_length.pltで、length0.datの波形を確認した。
-続きはtest_length.pltを編集し、全てのばねの波形を得るところから。
+test_length.shを実行すると、test_length.cの各ばねの長さの波形が得られる。
 
 ・バグ
