@@ -1,20 +1,29 @@
 // 実行は ./ms N NSTEP
 #include <stdio.h>
 #include <math.h>
-
-/* parameters for mass spring */
+#include "lapacke.h"
+#include "cblas.h"
+//////// parameters to be costomized ////////
 #define N 9 // number of mass points
 #define M 12 // number of springs (root_N-1)*root_N*2
-const int NSTEP = 10000; /* simulating time steps */
+const char *dirname = "test_length";
+/* simulating time steps */
+const int NSTEP = 3000;
+/* washout, learning, evaluating term (time steps) */
+const int WASHOUT = 1000;
+const int LEARNING = 1000;
+const int EVAL = 1000;
+
+const double dt = 0.0025;
+const int T_input = 1; // adjust frequency of input signal
 const double gamma1 = 0.001;
 const double k = 100.0;
 const double natu_l = 1.0;
-const char *dirname = "test_length";
 const double w_in[] = {1.0};
-const double dt = 0.0025;
-const int T_input = 1; // adjust frequency of input signal
 int fixed_p[] = {}; // index array of fixed points
 int in_p[] = {0}; // index array of input points
+
+//////// variables dosen't need to be costomized ////////
 int fixed_num = 0; // number of fixed points (elements of fixed_p)
 int in_num = 0; // number of inputted points (elements of in_p)
 double input[20]; // input timesiries
@@ -26,13 +35,22 @@ double m[N];
 double l[M]; // length of spring at time n*dt as outpus.
 int G[N][N];
 double force_x[N];
+
 /* variables and parameters for RK4 */
 double ku1[N], ku2[N], ku3[N], ku4[N], kx1[N], kx2[N], kx3[N], kx4[N];
 double kv1[N], kv2[N], kv3[N], kv4[N], ky1[N], ky2[N], ky3[N], ky4[N];
+
 /* variables for NARMA models */
 double o_nrm2[3]; // NARMA2 output
 double o_nrm10[11]; // NARMA10 output
 double o_nrm20[21]; // NARMA20 output
+
+/* variables for learning */
+//double T[3][LEARNING]; // teach signals of narma models
+//double W_out[3][M]; // weights for l[M]
+//double L[M][LEARNING]; // ouputs l_i(t)
+double *T, *W_out, L;
+
 /* parameters for file I/O */
 FILE *fp1; // for export coodinates
 FILE *fp2; // for export length of springs
@@ -43,6 +61,7 @@ void genGraph();
 void dammy_genGraph();
 void printGraph();
 void init();
+void init_for_lapack();
 void updateInput(int time_steps);
 void updateNarma2();
 void updateNarma10();
@@ -66,6 +85,7 @@ int main(int argc, char *argv[]){
   in_num = sizeof in_p / sizeof in_p[0];
 
   init();
+  init_for_lapack();
 //  test_getSpringLength();
   // printGraph();
 //  printf("simulating mass-spring system...\n");
@@ -78,11 +98,15 @@ int main(int argc, char *argv[]){
     updateNarma20();
     rk4(); //全ての質点の座標の更新
     getSpringLength(); //系の出力となるばねの長さを求め、配列l[]を更新
-    exportCoordinates(n); //座標のデータをファイル出力
-    exportLength(n); //ばねの長さをファイル出力
+//    exportCoordinates(n); //座標のデータをファイル出力
+//    exportLength(n); //ばねの長さをファイル出力
   }
-
   return (0);
+}
+
+void init_for_lapack(){
+  T = malloc(3*LEARNING*sizeof(double));
+  printf("%f\n",&T);
 }
 
 void init(){
