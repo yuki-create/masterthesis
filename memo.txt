@@ -1,7 +1,5 @@
 ・差分
-T,Lについて、initForLapackの実装
-updateLearnigData(int time_steps)の実装
+least_squares.cでCOL_MAJORの最小二乗法。
+これからms.cのL,Tへの代入方法をCOL_MAJORで計算できるように見直す。
 
 ・バグ
-LAPACK向けの行列の表現がよくわからない。列ごとに何を並べるのか、計算の時にまた転置するのか。
-先にLAPACKEによる最小二乗法のチュートリアルが必要。

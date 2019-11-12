@@ -112,8 +112,8 @@ int main(int argc, char *argv[]){
 
 void initForLapack(){
   int i,j=0;
-  T = malloc(3*LEARNING*sizeof(double));
-  L = malloc(M*LEARNING*sizeof(double));
+  T = malloc(LEARNING*3*sizeof(double));
+  L = malloc(LEARNING*M*sizeof(double));
   /* Fotran型の配列、列ごとに要素が並ぶ */
   for(i=0;i<3;i++){
     for(j=0;j<LEARNING;j++){
