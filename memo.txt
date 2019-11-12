@@ -1,6 +1,12 @@
 ・差分
-updateLearningData()のT,Lへの代入方法が列オーダーで合っていることを確認。
-LAPACKE_dgelsを用いたW_outを求める関数getWeights()の実装。
-W_outを出力するprintWeights()の実装。
+o_ms[3]の配列の宣言のみ。
+matvec.cで、cblasのdgemvで行列とベクトルの積を計算する練習。
+質点ばね系のNARMAモデルの近似値を求めるupdateOutputsMS()を実装。
+test_outputsMS.cで、MSによる近似とNARMAモデルの出力をプロット。
 
 ・バグ
+o_msの波形を見る限り、この質点ばね系ではNARMAモデルを再現できなさそう。
+入力ノード数や固定点を変えても複雑な時系列をトレースできず、単純な振動を見せる。
+!以前にHauser先生が言っていた、「格子状でできなかった」状態になっているかもしれない
+!だとすれば、k,gamma,ばねの自然長をランダムにする必要があるか
+!そもそも繋ぎ方を格子状でないものにすべきか

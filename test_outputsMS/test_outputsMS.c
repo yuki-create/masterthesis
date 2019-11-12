@@ -4,8 +4,8 @@
 #include "lapacke.h"
 #include "cblas.h"
 //////// parameters to be costomized ////////
-#define N 9 // number of mass points
-#define M 12 // number of springs (root_N-1)*root_N*2
+#define N 36 // number of mass points
+#define M 60 // number of springs (root_N-1)*root_N*2
 const char *dirname = ".";
 /* washout, learning, evaluating term (time steps) */
 const int WASHOUT = 5000;
@@ -19,9 +19,9 @@ const int T_input = 1; // adjust frequency of input signal
 const double gamma1 = 0.001;
 const double k = 100.0;
 const double natu_l = 1.0;
-const double w_in[] = {1.0};
+const double w_in[] = {1.0,1.5,0.5,2.0};
 int fixed_p[] = {}; // index array of fixed points
-int in_p[] = {0}; // index array of input points
+int in_p[] = {0,10,20,30}; // index array of input points
 
 //////// variables dosen't need to be costomized ////////
 int fixed_num = 0; // number of fixed points (elements of fixed_p)
@@ -431,6 +431,7 @@ void test_updateOutputsMS(int time_steps){
   for(i=0;i<3;i++){
     printf("%f  ",o_ms[i]);
   }
+  printf("%f  %f  %f",o_nrm2[0],o_nrm10[0],o_nrm20[0]);
   printf("\n");
 }
 
