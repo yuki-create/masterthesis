@@ -1,6 +1,7 @@
 ・差分
-教師信号の行列Tを作る（一次元配列として実装）
-init_for_lapackの実装（まだメモリ確保しただけ）
-ms.shのコンパイル部分書き換え
+T,Lについて、initForLapackの実装
+updateLearnigData(int time_steps)の実装
 
 ・バグ
+LAPACK向けの行列の表現がよくわからない。列ごとに何を並べるのか、計算の時にまた転置するのか。
+先にLAPACKEによる最小二乗法のチュートリアルが必要。

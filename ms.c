@@ -7,12 +7,12 @@
 #define N 9 // number of mass points
 #define M 12 // number of springs (root_N-1)*root_N*2
 const char *dirname = "test_length";
-/* simulating time steps */
-const int NSTEP = 3000;
 /* washout, learning, evaluating term (time steps) */
-const int WASHOUT = 1000;
-const int LEARNING = 1000;
-const int EVAL = 1000;
+const int WASHOUT = 5000;
+const int LEARNING = 500;
+const int EVAL = 0;
+/* simulating time steps */
+const int NSTEP = WASHOUT+LEARNING+EVAL;
 
 const double dt = 0.0025;
 const int T_input = 1; // adjust frequency of input signal
@@ -49,7 +49,7 @@ double o_nrm20[21]; // NARMA20 output
 //double T[3][LEARNING]; // teach signals of narma models
 //double W_out[3][M]; // weights for l[M]
 //double L[M][LEARNING]; // ouputs l_i(t)
-double *T, *W_out, L;
+double *T, *W_out, *L;
 
 /* parameters for file I/O */
 FILE *fp1; // for export coodinates
@@ -61,21 +61,23 @@ void genGraph();
 void dammy_genGraph();
 void printGraph();
 void init();
-void init_for_lapack();
+void initForLapack();
 void updateInput(int time_steps);
 void updateNarma2();
 void updateNarma10();
 void updateNarma20();
+void updateLearnigData(int time_steps);
 void rk4();
-void eular();
 void getSpringLength();
 void exportCoordinates(int time_steps);
 void exportLength(int time_steps);
 double Fx(double *array1, double *array2, double *array3, int idx1);
 double Fy(double *array1, double *array2, double *array3, int idx1);
 double f(double *array1, double *array2, int idx1, int idx2);
+void eular();
 void test_getSpringLength();
 void test_updateNarma(int time_steps);
+void test_updateLearningData();
 
 //main(コマンドライン引数の個数，引数を文字列として保存する配列)
 // argv[] = {"./ms", "N", "NSTEP"}
@@ -85,10 +87,9 @@ int main(int argc, char *argv[]){
   in_num = sizeof in_p / sizeof in_p[0];
 
   init();
-  init_for_lapack();
+  initForLapack();
 //  test_getSpringLength();
   // printGraph();
-//  printf("simulating mass-spring system...\n");
 
    for(n=0;n<NSTEP;n++){
   //  test_updateNarma(n);
@@ -100,13 +101,30 @@ int main(int argc, char *argv[]){
     getSpringLength(); //系の出力となるばねの長さを求め、配列l[]を更新
 //    exportCoordinates(n); //座標のデータをファイル出力
 //    exportLength(n); //ばねの長さをファイル出力
+    if(WASHOUT<=n & n<WASHOUT+LEARNING)
+      updateLearnigData(n);
   }
+  test_updateLearningData();
+  free(T);
+  free(L);
   return (0);
 }
 
-void init_for_lapack(){
+void initForLapack(){
+  int i,j=0;
   T = malloc(3*LEARNING*sizeof(double));
-  printf("%f\n",&T);
+  L = malloc(M*LEARNING*sizeof(double));
+  /* Fotran型の配列、列ごとに要素が並ぶ */
+  for(i=0;i<3;i++){
+    for(j=0;j<LEARNING;j++){
+      T[i*LEARNING+j] = 0.0;
+    }
+  }
+  for(i=0;i<M;i++){
+    for(j=0;j<LEARNING;j++){
+      L[i*LEARNING+j] = 0.0;
+    }
+  }
 }
 
 void init(){
@@ -161,7 +179,6 @@ void init(){
     }
     fprintf(fp1,"x[%d] y[%d]\n",i,i);
     fprintf(fp1,"%f %f\n",x[i],y[i]); //coordinates at n=0 (t=0)初期値を書き込み
-    //  printf("%f %f\n",x[i],y[i]); //debug
     fclose(fp1);
   }
 
@@ -316,10 +333,7 @@ void updateNarma2(){
   // o_nrm2 = {o(t), o(t-1), o(t-2)}
   o_nrm2[2] = o_nrm2[1];
   o_nrm2[1] = o_nrm2[0];
-  // diverged
   o_nrm2[0] = 0.4 * o_nrm2[1] + 0.4 * o_nrm2[1] * o_nrm2[2] + 0.6 * pow(input[0], 3.0) + 0.1;
-  //not diverged
-  //o_nrm2[0] = 0.1 * o_nrm2[1] + 0.4 * o_nrm2[1] * o_nrm2[2] + 0.6 * pow(input[0], 3.0) + 0.1;
 }
 
 void updateNarma10(){
@@ -342,26 +356,6 @@ void updateNarma20(){
   o_nrm20[0] = 0.3*o_nrm20[1] + 0.05*o_nrm20[1]*tmp + 1.5*input[19]*input[0] + 0.1;
 }
 
-void test_updateNarma(int time_steps){
-  printf("%d %f %f %f %f\n",time_steps,input[0],o_nrm2[0],o_nrm10[0],o_nrm20[0]);
-}
-
-void test_getSpringLength(){
-  int looked_idx = 0;
-  int arrayl_idx = 0;
-  int i,j=0;
-  for(i=0;i<N;i++){
-    for(j=looked_idx;j<N;j++){
-      if(G[i][j] == 1){
-      //  l[arrayl_idx] = sqrt( pow( (x[i]-x[j]), 2.0 ) + pow( (y[i]-y[j]), 2.0 ) );
-      printf("l[%d] connection x[i]-x[j]: %d-%d\n",arrayl_idx,i,j);
-        arrayl_idx++;
-      }
-    }
-    looked_idx++;
-  }
-}
-
 void getSpringLength(){
   int looked_idx = 0;
   int arrayl_idx = 0;
@@ -374,6 +368,36 @@ void getSpringLength(){
       }
     }
     looked_idx++;
+  }
+}
+
+void updateLearnigData(int time_steps){
+  int i=0;
+  T[time_steps-WASHOUT] = o_nrm2[0];
+  T[time_steps-WASHOUT+LEARNING] = o_nrm10[0];
+  T[time_steps-WASHOUT+LEARNING*2] = o_nrm20[0];
+  //// Bus error ////
+  for(i=0;i<M;i++){
+    L[time_steps-WASHOUT+LEARNING*i] = l[i];
+  }
+}
+
+void test_updateLearningData(){
+  /*
+  plot "T.dat" using ($1*0.0025):2 w l title"narma2", "T.dat" using ($1*0.0025):3 w l title"narma10", "T.dat" using ($1*0.0025):4 w l title"narma20"
+  */
+  int i,j;
+  // export T
+/*  for(j=0;j<LEARNING;j++){
+    printf("%d %f %f %f\n",j+WASHOUT,T[j],T[LEARNING+j],T[LEARNING*2+j]);
+  } */
+  // export L
+  for(j=0;j<LEARNING;j++){
+    printf("%d ",j+WASHOUT);
+    for(i=0;i<M;i++){
+        printf("%f ",L[LEARNING*i+j]);
+    }
+    printf("\n");
   }
 }
 
@@ -477,6 +501,39 @@ void rk4(){
   }
 }
 
+double Fx(double *array1, double *array2, double *array3, int idx1){
+  int idx2=0;
+  double ans = 0;
+  /* get sum of elastic forces to array1[idx1] */
+  double sum = 0;
+  for(idx2=0;idx2<N;idx2++){
+    if(G[idx1][idx2] == 1){
+      sum += f(array1,array2,idx1,idx2);
+    }
+  }
+  return ( sum - force_x[idx1] - gamma1 * array3[idx1] ) / m[idx1];
+}
+// force_xをx方向にのみ入力するために分ける
+double Fy(double *array1, double *array2, double *array3, int idx1){
+  int idx2=0;
+  double ans = 0;
+  /* get sum of elastic forces to array1[idx1] */
+  double sum = 0;
+  for(idx2=0;idx2<N;idx2++){
+    if(G[idx1][idx2] == 1){
+        sum += f(array1,array2,idx1,idx2);
+    }
+  }
+  return ( sum  -  gamma1 * array3[idx1] ) / m[idx1];
+}
+
+double f(double *array1, double *array2, int idx1, int idx2){
+  double ans = 0;
+  double distance = sqrt( pow((array1[idx1]-array1[idx2]), 2.0) + pow((array2[idx1]-array2[idx2]), 2.0) );
+  ans = k * ( natu_l* (array1[idx1]-array1[idx2]) / distance + array1[idx2] - array1[idx1]);
+  return ans;
+}
+
 void eular(){
   int fixed_flag = 0; // 0:false 1:true
   int i=0;
@@ -519,35 +576,22 @@ void eular(){
   }
 }
 
-double Fx(double *array1, double *array2, double *array3, int idx1){
-  int idx2=0;
-  double ans = 0;
-  /* get sum of elastic forces to array1[idx1] */
-  double sum = 0;
-  for(idx2=0;idx2<N;idx2++){
-    if(G[idx1][idx2] == 1){
-      sum += f(array1,array2,idx1,idx2);
-    }
-  }
-  return ( sum - force_x[idx1] - gamma1 * array3[idx1] ) / m[idx1];
-}
-// force_xをx方向にのみ入力するために分ける
-double Fy(double *array1, double *array2, double *array3, int idx1){
-  int idx2=0;
-  double ans = 0;
-  /* get sum of elastic forces to array1[idx1] */
-  double sum = 0;
-  for(idx2=0;idx2<N;idx2++){
-    if(G[idx1][idx2] == 1){
-        sum += f(array1,array2,idx1,idx2);
-    }
-  }
-  return ( sum  -  gamma1 * array3[idx1] ) / m[idx1];
+void test_updateNarma(int time_steps){
+  printf("%d %f %f %f %f\n",time_steps,input[0],o_nrm2[0],o_nrm10[0],o_nrm20[0]);
 }
 
-double f(double *array1, double *array2, int idx1, int idx2){
-  double ans = 0;
-  double distance = sqrt( pow((array1[idx1]-array1[idx2]), 2.0) + pow((array2[idx1]-array2[idx2]), 2.0) );
-  ans = k * ( natu_l* (array1[idx1]-array1[idx2]) / distance + array1[idx2] - array1[idx1]);
-  return ans;
+void test_getSpringLength(){
+  int looked_idx = 0;
+  int arrayl_idx = 0;
+  int i,j=0;
+  for(i=0;i<N;i++){
+    for(j=looked_idx;j<N;j++){
+      if(G[i][j] == 1){
+      //  l[arrayl_idx] = sqrt( pow( (x[i]-x[j]), 2.0 ) + pow( (y[i]-y[j]), 2.0 ) );
+      printf("l[%d] connection x[i]-x[j]: %d-%d\n",arrayl_idx,i,j);
+        arrayl_idx++;
+      }
+    }
+    looked_idx++;
+  }
 }
