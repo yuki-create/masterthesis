@@ -9,7 +9,7 @@
 const char *dirname = "test_length";
 /* washout, learning, evaluating term (time steps) */
 const int WASHOUT = 5000;
-const int LEARNING = 500;
+const int LEARNING = 5000;
 const int EVAL = 0;
 /* simulating time steps */
 const int NSTEP = WASHOUT+LEARNING+EVAL;
@@ -46,9 +46,6 @@ double o_nrm10[11]; // NARMA10 output
 double o_nrm20[21]; // NARMA20 output
 
 /* variables for learning */
-//double T[3][LEARNING]; // teach signals of narma models
-//double W_out[3][M]; // weights for l[M]
-//double L[M][LEARNING]; // ouputs l_i(t)
 double *T, *W_out, *L;
 
 /* parameters for file I/O */
@@ -58,7 +55,6 @@ char filename1[40]; // for export coodinates
 char filename2[40];
 /* decralation of functions */
 void genGraph();
-void dammy_genGraph();
 void printGraph();
 void init();
 void initForLapack();
@@ -67,6 +63,8 @@ void updateNarma2();
 void updateNarma10();
 void updateNarma20();
 void updateLearnigData(int time_steps);
+void getWeights();
+void printWeights();
 void rk4();
 void getSpringLength();
 void exportCoordinates(int time_steps);
@@ -75,6 +73,7 @@ double Fx(double *array1, double *array2, double *array3, int idx1);
 double Fy(double *array1, double *array2, double *array3, int idx1);
 double f(double *array1, double *array2, int idx1, int idx2);
 void eular();
+void dammy_genGraph();
 void test_getSpringLength();
 void test_updateNarma(int time_steps);
 void test_updateLearningData();
@@ -104,9 +103,11 @@ int main(int argc, char *argv[]){
     if(WASHOUT<=n & n<WASHOUT+LEARNING)
       updateLearnigData(n);
   }
-  test_updateLearningData();
+  getWeights();
+//  test_updateLearningData();
   free(T);
   free(L);
+  free(W_out);
   return (0);
 }
 
@@ -114,15 +115,21 @@ void initForLapack(){
   int i,j=0;
   T = malloc(LEARNING*3*sizeof(double));
   L = malloc(LEARNING*M*sizeof(double));
-  /* Fotran型の配列、列ごとに要素が並ぶ */
-  for(i=0;i<3;i++){
-    for(j=0;j<LEARNING;j++){
-      T[i*LEARNING+j] = 0.0;
+  W_out = malloc(M*3*sizeof(double));
+  /* 考えている行列の、列ごとに要素を代入する */
+  for(j=0;j<3;j++){
+    for(i=0;i<LEARNING;i++){
+      T[j*LEARNING+i] = 0.0;
     }
   }
-  for(i=0;i<M;i++){
-    for(j=0;j<LEARNING;j++){
-      L[i*LEARNING+j] = 0.0;
+  for(j=0;j<M;j++){
+    for(i=0;i<LEARNING;i++){
+      L[j*LEARNING+i] = 0.0;
+    }
+  }
+  for(j=0;j<3;j++){
+    for(i=0;i<M;i++){
+      W_out[j*M+i] = 0.0;
     }
   }
 }
@@ -207,18 +214,6 @@ void init(){
     looked_idx++;
   }
 }
-
-void dammy_genGraph(){
-  int root_N = sqrt(N);
-  int i=0;
-  int j=0;
-  for(i=0;i<N;i++){
-    for(j=0;j<N;j++){
-      G[i][j] = 0;
-    }
-  }
-}
-
 //隣接行列を生成
 void genGraph(){
   int root_N = sqrt(N);
@@ -382,20 +377,27 @@ void updateLearnigData(int time_steps){
   }
 }
 
-void test_updateLearningData(){
-  /*
-  plot "T.dat" using ($1*0.0025):2 w l title"narma2", "T.dat" using ($1*0.0025):3 w l title"narma10", "T.dat" using ($1*0.0025):4 w l title"narma20"
-  */
+void getWeights(){
+  lapack_int nrhs, ldL, ldT, info;
   int i,j;
-  // export T
-/*  for(j=0;j<LEARNING;j++){
-    printf("%d %f %f %f\n",j+WASHOUT,T[j],T[LEARNING+j],T[LEARNING*2+j]);
-  } */
-  // export L
-  for(j=0;j<LEARNING;j++){
-    printf("%d ",j+WASHOUT);
+  nrhs = 3;
+  ldL = LEARNING;
+  ldT = LEARNING;
+  info = LAPACKE_dgels(LAPACK_COL_MAJOR,'N',LEARNING,M,nrhs,L,ldL,T,ldT);
+
+  for(j=0;j<3;j++){
     for(i=0;i<M;i++){
-        printf("%f ",L[LEARNING*i+j]);
+      W_out[i+M*j] = T[i+ldT*j];
+    }
+  }
+}
+
+void printWeights(){
+  printf("W_out:\n");
+  printf("NARMA2  NARMA10 NARMA20\n");
+  for(i=0;i<M;i++){
+    for(j=0;j<3;j++){
+      printf("%lf  ",W_out[i+M*j]);
     }
     printf("\n");
   }
@@ -576,6 +578,17 @@ void eular(){
   }
 }
 
+void dammy_genGraph(){
+  int root_N = sqrt(N);
+  int i=0;
+  int j=0;
+  for(i=0;i<N;i++){
+    for(j=0;j<N;j++){
+      G[i][j] = 0;
+    }
+  }
+}
+
 void test_updateNarma(int time_steps){
   printf("%d %f %f %f %f\n",time_steps,input[0],o_nrm2[0],o_nrm10[0],o_nrm20[0]);
 }
@@ -593,5 +606,24 @@ void test_getSpringLength(){
       }
     }
     looked_idx++;
+  }
+}
+
+void test_updateLearningData(){
+  /*
+  plot "T.dat" using ($1*0.0025):2 w l title"narma2", "T.dat" using ($1*0.0025):3 w l title"narma10", "T.dat" using ($1*0.0025):4 w l title"narma20"
+  */
+  int i,j;
+  // export T
+/*  for(j=0;j<LEARNING;j++){
+    printf("%d %f %f %f\n",j+WASHOUT,T[j],T[LEARNING+j],T[LEARNING*2+j]);
+  } */
+  // export L
+  for(j=0;j<LEARNING;j++){
+    printf("%d ",j+WASHOUT);
+    for(i=0;i<M;i++){
+        printf("%f ",L[LEARNING*i+j]);
+    }
+    printf("\n");
   }
 }

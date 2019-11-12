@@ -1,5 +1,6 @@
 ・差分
-least_squares.cでCOL_MAJORの最小二乗法。
-これからms.cのL,Tへの代入方法をCOL_MAJORで計算できるように見直す。
+updateLearningData()のT,Lへの代入方法が列オーダーで合っていることを確認。
+LAPACKE_dgelsを用いたW_outを求める関数getWeights()の実装。
+W_outを出力するprintWeights()の実装。
 
 ・バグ
