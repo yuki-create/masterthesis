@@ -8,10 +8,8 @@ mkdir -p ${str1}/points
 mkdir -p ${str1}/springs
 #echo simulating ms...
 ./ms #./ms N NSTEP
-<< COMMENTOUT
 echo drowing animation...
 gnuplot -persist <<-EOFMarker
-  load "ms.plt" ;
+  load "outputs.plt" ;
   exit ;
 EOFMarker
-COMMENTOUT

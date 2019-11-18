@@ -1,14 +1,16 @@
 // 実行は ./ms N NSTEP
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
+#include <time.h>
 #include "lapacke.h"
 #include "cblas.h"
 //////// parameters to be costomized ////////
-#define N 9 // number of mass points
-#define M 12 // number of springs (root_N-1)*root_N*2
+#define N 36 // number of mass points
+#define M 60 // number of springs (root_N-1)*root_N*2
 const char *dirname = ".";
 /* washout, learning, evaluating term (time steps) */
-const int WASHOUT = 5000;
+const int WASHOUT = 2000;
 const int LEARNING = 5000;
 const int EVAL = 1000;
 /* simulating time steps */
@@ -16,12 +18,14 @@ const int NSTEP = WASHOUT+LEARNING+EVAL;
 
 const double dt = 0.0025;
 const int T_input = 1; // adjust frequency of input signal
-const double gamma1 = 0.001;
-const double k = 100.0;
+// const double gamma1 = 0.1;
+// const double k = 100.0;
 const double natu_l = 1.0;
-const double w_in[] = {1.0};
-int fixed_p[] = {}; // index array of fixed points
-int in_p[] = {0}; // index array of input points
+const double w_in[] = {1.0,1.0,1.0};
+int fixed_p[] = {25}; // index array of fixed points
+int in_p[] = {0,20,40}; // index array of input points
+double k[M];
+double gamma1[M];
 
 //////// variables dosen't need to be costomized ////////
 int fixed_num = 0; // number of fixed points (elements of fixed_p)
@@ -33,7 +37,8 @@ double y[N];
 double v[N]; // dy/dt
 double m[N];
 double l[M]; // length of spring at time n*dt as outpus.
-int G[N][N];
+int G[N][N]; // adjacency matrix (symmetric matrix)
+int p2l_mat[N][N]; // point index x[idx1],x[idx2] -> spring index p2l_mat[idx1][idx2] (upper triangular matrix)
 double force_x[N];
 
 /* variables and parameters for RK4 */
@@ -54,8 +59,10 @@ double o_ms[3]; // [O_ms(t) for narma2, narma10, narma20]
 /* parameters for file I/O */
 FILE *fp1; // for export coodinates
 FILE *fp2; // for export length of springs
+FILE *fp3; // for outputs of MS and NARMA after learning
 char filename1[40]; // for export coodinates
 char filename2[40];
+char filename3[40];
 /* decralation of functions */
 void genGraph();
 void printGraph();
@@ -69,11 +76,11 @@ void updateLearnigData(int time_steps);
 void getWeights();
 void printWeights();
 void updateOutputsMS();
-void test_updateOutputsMS(int time_steps);
 void rk4();
 void getSpringLength();
 void exportCoordinates(int time_steps);
 void exportLength(int time_steps);
+void exportOutputs(int time_steps);
 double Fx(double *array1, double *array2, double *array3, int idx1);
 double Fy(double *array1, double *array2, double *array3, int idx1);
 double f(double *array1, double *array2, int idx1, int idx2);
@@ -89,12 +96,13 @@ int main(int argc, char *argv[]){
   int i,n;
   fixed_num = sizeof fixed_p / sizeof fixed_p[0];
   in_num = sizeof in_p / sizeof in_p[0];
+  //srand((unsigned)time(NULL));
 
   init();
   initForLapack();
-  //  test_getSpringLength();
+  // test_getSpringLength();
   // printGraph();
-
+  // printf("k[-100]=%f\n",k[-100]);  //アクセスできてしまう
   /* washout phase */
   for(n=0;n<WASHOUT;n++){
     updateInput(n); //inputノードに外力を入力
@@ -134,7 +142,7 @@ int main(int argc, char *argv[]){
     //    exportCoordinates(n); //座標のデータをファイル出力
     //    exportLength(n); //ばねの長さをファイル出力
     updateOutputsMS();
-    test_updateOutputsMS(n);
+    exportOutputs(n);
   }
 
   //  test_updateLearningData();
@@ -182,9 +190,14 @@ void init(){
       y[root_N*i+j] = i;
     }
   }
-  /* init spring length array l[M] with natural length*/
   for(i=0;i<M;i++){
     l[i] = natu_l;
+    // 500〜1000のランダムな実数
+    k[i] = (double)rand()/RAND_MAX*500.0+500;
+    //k[i] = 100.0;
+    // 0~0.1のランダムな実数
+    gamma1[i] = (double)rand()/RAND_MAX*0.1;
+    printf("gamma=%f, k=%f\n",gamma1[i],k[i]);
   }
   for(i=0;i<N;i++){
     m[i] = 1.0;
@@ -208,7 +221,12 @@ void init(){
   for(i=0;i<3;i++){
     o_ms[i] = 0.0;
   }
-
+  for(i=0;i<N;i++){
+    for(j=0;j<N;j++){
+      // -1で初期化したところ、l[-1]にアクセスしてエラーが出なかった
+      p2l_mat[i][j] = -1;
+    }
+  }
   /* make coodinates data files */
   for(i=0;i<N;i++){
     sprintf(filename1,"%s/points/point%d.dat",dirname,i);
@@ -225,7 +243,7 @@ void init(){
     fclose(fp1);
   }
 
-  /* make length of springs data files */
+  /* make length of springs data files and set p2l_mat[i][j] */
   for(i=0;i<N;i++){
     for(j=looked_idx;j<N;j++){
       if(G[i][j] == 1){
@@ -243,12 +261,28 @@ void init(){
         fprintf(fp2,"n t l_%d(t)\n",arrayl_idx);
         fprintf(fp2,"0 0 %f\n",l[arrayl_idx]);
         fclose(fp2);
-
+        /* 質点idx1とidx2と、バネのインデックスarrayl_idxを対応づける行列 */
+        /* p2l_matを対称行列にする */
+        p2l_mat[i][j] = arrayl_idx;
+        p2l_mat[j][i] = arrayl_idx;
         arrayl_idx++;
       }
     }
     looked_idx++;
   }
+
+  /* make outputs.dat file */
+  sprintf(filename3,"%s/outputs.dat",dirname);
+  fp3 = fopen(filename3,"w");
+  /* error handling */
+  if( fp3 == NULL ){
+    printf("cannot open file %s\n",filename3);
+  }
+  else{
+    //    printf("open file %s\n",filename3);
+  }
+  fprintf(fp3,"#n  ms_narma2 ms_narma10  ms_narma20  narma2  narma10  narma20\n");
+  fclose(fp3);
 }
 //隣接行列を生成
 void genGraph(){
@@ -303,6 +337,31 @@ void printGraph(){
     //行毎に要素を出力
     for(j=0;j<N;j++){
       printf("%d, ",G[i][j]);
+    }
+    printf("\n");
+  }
+
+  // p2l_matを出力
+  printf("p2l_mat =\n");
+  //列のindexを表示
+  printf("   ");
+  for(j=0;j<N;j++){
+    printf("%d ",j);
+  }
+  printf("\n");
+
+  printf("   ");
+  for(j=0;j<N;j++){
+    printf("－");
+  }
+  printf("\n");
+
+  for(i=0;i<N;i++){
+    //行のindexを表示
+    printf("%d | ",i);
+    //行毎に要素を出力
+    for(j=0;j<N;j++){
+      printf("%d ",p2l_mat[i][j]);
     }
     printf("\n");
   }
@@ -423,17 +482,6 @@ void updateOutputsMS(){
       0.0, o_ms, inco_ms);
 }
 
-void test_updateOutputsMS(int time_steps){
-  int i;
-/*  printf("outputs of MS for\n");
-  printf("NARMA2   NARMA10   NARMA20:\n"); */
-  printf("%d  ",time_steps);
-  for(i=0;i<3;i++){
-    printf("%f  ",o_ms[i]);
-  }
-  printf("\n");
-}
-
 void getWeights(){
   lapack_int nrhs, ldL, ldT, info;
   int i,j;
@@ -459,6 +507,25 @@ void printWeights(){
     }
     printf("\n");
   }
+}
+
+void exportOutputs(int time_steps){
+  int i;
+/*  printf("outputs of MS for\n");
+  printf("NARMA2   NARMA10   NARMA20:\n"); */
+  sprintf(filename3,"%s/outputs.dat",dirname);
+  fp3 = fopen(filename3,"a");
+  if( fp3 == NULL ){
+    printf("loop count n=%d : cannot open file %s\n",time_steps,filename3);
+  }
+  // time_step, 質点バネ系による近似, NARMAモデルの出力値を1行に出力
+  fprintf(fp3,"%d  ",time_steps);
+  for(i=0;i<3;i++){
+    fprintf(fp3,"%f  ",o_ms[i]);
+  }
+  fprintf(fp3,"%f  %f  %f",o_nrm2[0],o_nrm10[0],o_nrm20[0]);
+  fprintf(fp3,"\n");
+  fclose(fp3);
 }
 
 void rk4(){
@@ -566,12 +633,13 @@ double Fx(double *array1, double *array2, double *array3, int idx1){
   double ans = 0;
   /* get sum of elastic forces to array1[idx1] */
   double sum = 0;
+  int arrayl_idx = p2l_mat[idx1][idx2];
   for(idx2=0;idx2<N;idx2++){
     if(G[idx1][idx2] == 1){
       sum += f(array1,array2,idx1,idx2);
     }
   }
-  return ( sum - force_x[idx1] - gamma1 * array3[idx1] ) / m[idx1];
+  return ( sum - force_x[idx1] - gamma1[arrayl_idx] * array3[idx1] ) / m[idx1];
 }
 // force_xをx方向にのみ入力するために分ける
 double Fy(double *array1, double *array2, double *array3, int idx1){
@@ -579,18 +647,24 @@ double Fy(double *array1, double *array2, double *array3, int idx1){
   double ans = 0;
   /* get sum of elastic forces to array1[idx1] */
   double sum = 0;
+  int arrayl_idx = p2l_mat[idx1][idx2];
   for(idx2=0;idx2<N;idx2++){
     if(G[idx1][idx2] == 1){
       sum += f(array1,array2,idx1,idx2);
     }
   }
-  return ( sum  -  gamma1 * array3[idx1] ) / m[idx1];
+  return ( sum  -  gamma1[arrayl_idx] * array3[idx1] ) / m[idx1];
 }
 
 double f(double *array1, double *array2, int idx1, int idx2){
   double ans = 0;
+  int arrayl_idx = p2l_mat[idx1][idx2];
+  // debug
+   if(arrayl_idx == -1){
+      printf("arrayl_idx = -1: idx1=%d, idx2=%d\n",idx1,idx2);
+  }
   double distance = sqrt( pow((array1[idx1]-array1[idx2]), 2.0) + pow((array2[idx1]-array2[idx2]), 2.0) );
-  ans = k * ( natu_l* (array1[idx1]-array1[idx2]) / distance + array1[idx2] - array1[idx1]);
+  ans = k[arrayl_idx] * ( natu_l* (array1[idx1]-array1[idx2]) / distance + array1[idx2] - array1[idx1]);
   return ans;
 }
 
