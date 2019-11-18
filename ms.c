@@ -6,11 +6,11 @@
 #include "lapacke.h"
 #include "cblas.h"
 //////// parameters to be costomized ////////
-#define N 36 // number of mass points
-#define M 60 // number of springs (root_N-1)*root_N*2
+#define N 64 // number of mass points
+#define M 112 // number of springs (root_N-1)*root_N*2
 const char *dirname = ".";
 /* washout, learning, evaluating term (time steps) */
-const int WASHOUT = 2000;
+const int WASHOUT = 5000;
 const int LEARNING = 5000;
 const int EVAL = 1000;
 /* simulating time steps */
@@ -21,15 +21,16 @@ const int T_input = 1; // adjust frequency of input signal
 // const double gamma1 = 0.1;
 // const double k = 100.0;
 const double natu_l = 1.0;
-const double w_in[] = {0.5,1.0,2.0};
-const double k_bottom = 500.0;
-const double k_top = 1000.0;
-const double gamma1_bottom = 0.0;
-const double gamma1_top = 0.1;
-int fixed_p[] = {25}; // index array of fixed points
-int in_p[] = {0,20,40}; // index array of input points
+const double w_in[] = {0.5,1.0};
+const double k_bottom = 1000.0;
+const double k_top = 2000.0;
+const double gamma1_bottom = 0.001;
+const double gamma1_top = 0.01;
+int fixed_p[] = {14}; // index array of fixed points
+int in_p[] = {0,25}; // index array of input points
 double k[M];
 double gamma1[M];
+int seed_flag = 0;
 
 //////// variables dosen't need to be costomized ////////
 int fixed_num = 0; // number of fixed points (elements of fixed_p)
@@ -58,7 +59,10 @@ double o_nrm20[21]; // NARMA20 output
 double *T, *W_out, *L;
 
 /* variables for EVAL phase */
-double o_ms[3]; // [O_ms(t) for narma2, narma10, narma20]
+double o_ms[3]; // outputs of MS [O_ms(t) for narma2, narma10, narma20]
+double squared_err[3]; // squared errors [narma2, narma10, narma20]
+double normalizer[3]; // normalizers [narma2, narma10, narma20]
+double err[3]; // normilized mean squaered errors
 
 /* parameters for file I/O */
 FILE *fp1; // for export coodinates
@@ -83,6 +87,8 @@ void updateLearnigData(int time_steps);
 void getWeights();
 void printWeights();
 void updateOutputsMS();
+void updateErr();
+void getErr();
 void rk4();
 void getSpringLength();
 void exportCoordinates(int time_steps);
@@ -104,7 +110,7 @@ int main(int argc, char *argv[]){
   int i,n;
   fixed_num = sizeof fixed_p / sizeof fixed_p[0];
   in_num = sizeof in_p / sizeof in_p[0];
-  //srand((unsigned)time(NULL));
+  if(seed_flag == 1) srand((unsigned)time(NULL));
 
   init();
   initFiles();
@@ -151,9 +157,11 @@ int main(int argc, char *argv[]){
     //    exportCoordinates(n); //座標のデータをファイル出力
     //    exportLength(n); //ばねの長さをファイル出力
     updateOutputsMS();
-    exportOutputs(n);
+    updateErr();
+    exportOutputs(n); //近似結果を出力
   }
-  exportResults();
+  getErr();
+  exportResults(); // 近似誤差と設定パラメータの出力
   //  test_updateLearningData();
   free(T);
   free(L);
@@ -227,6 +235,9 @@ void init(){
   }
   for(i=0;i<3;i++){
     o_ms[i] = 0.0;
+    squared_err[i] = 0.0;
+    normalizer[i] = 0.0;
+    err[i] = 0.0;
   }
   for(i=0;i<N;i++){
     for(j=0;j<N;j++){
@@ -523,6 +534,25 @@ void printWeights(){
   }
 }
 
+void updateErr(){
+  squared_err[0] += pow(o_nrm2[0]-o_ms[0], 2.0);
+  squared_err[1] += pow(o_nrm10[0]-o_ms[1], 2.0);
+  squared_err[2] += pow(o_nrm20[0]-o_ms[2], 2.0);
+  normalizer[0] += pow(o_nrm2[0],2.0);
+  normalizer[1] += pow(o_nrm10[0],2.0);
+  normalizer[2] += pow(o_nrm20[0],2.0);
+}
+
+void getErr(){
+  int i=0;
+  printf("NMSE:\nNARMA2    10    20\n");
+  for(i=0;i<3;i++){
+    err[i] = squared_err[i] / normalizer[i];
+    printf("%f    ",err[i]);
+  }
+  printf("\n");
+}
+
 void exportOutputs(int time_steps){
   int i;
 /*  printf("outputs of MS for\n");
@@ -554,6 +584,13 @@ void exportResults(){
   else{
     //    printf("open file %s\n",filename4);
   }
+  /* erros */
+  fprintf(fp4,"NMSE:\nNARMA2    10    20\n");
+  for(i=0;i<3;i++){
+    fprintf(fp4,"%f    ",err[i]);
+  }
+
+  fprintf(fp4,"\n---parameters---\n");
   fprintf(fp4,"WASHOUT = %d, LEARNING = %d, EVAL = %d\n",WASHOUT,LEARNING,EVAL);
 //  fclose(fp4);
 //  fp4 = fopen(filename4,"a");
