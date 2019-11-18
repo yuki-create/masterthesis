@@ -21,7 +21,11 @@ const int T_input = 1; // adjust frequency of input signal
 // const double gamma1 = 0.1;
 // const double k = 100.0;
 const double natu_l = 1.0;
-const double w_in[] = {1.0,1.0,1.0};
+const double w_in[] = {0.5,1.0,2.0};
+const double k_bottom = 500.0;
+const double k_top = 1000.0;
+const double gamma1_bottom = 0.0;
+const double gamma1_top = 0.1;
 int fixed_p[] = {25}; // index array of fixed points
 int in_p[] = {0,20,40}; // index array of input points
 double k[M];
@@ -60,13 +64,16 @@ double o_ms[3]; // [O_ms(t) for narma2, narma10, narma20]
 FILE *fp1; // for export coodinates
 FILE *fp2; // for export length of springs
 FILE *fp3; // for outputs of MS and NARMA after learning
+FILE *fp4; // for parameters and results file
 char filename1[40]; // for export coodinates
 char filename2[40];
 char filename3[40];
+char filename4[40];
 /* decralation of functions */
 void genGraph();
 void printGraph();
 void init();
+void initFiles();
 void initForLapack();
 void updateInput(int time_steps);
 void updateNarma2();
@@ -81,6 +88,7 @@ void getSpringLength();
 void exportCoordinates(int time_steps);
 void exportLength(int time_steps);
 void exportOutputs(int time_steps);
+void exportResults(); // results and parameters
 double Fx(double *array1, double *array2, double *array3, int idx1);
 double Fy(double *array1, double *array2, double *array3, int idx1);
 double f(double *array1, double *array2, int idx1, int idx2);
@@ -99,6 +107,7 @@ int main(int argc, char *argv[]){
   //srand((unsigned)time(NULL));
 
   init();
+  initFiles();
   initForLapack();
   // test_getSpringLength();
   // printGraph();
@@ -144,7 +153,7 @@ int main(int argc, char *argv[]){
     updateOutputsMS();
     exportOutputs(n);
   }
-
+  exportResults();
   //  test_updateLearningData();
   free(T);
   free(L);
@@ -178,8 +187,6 @@ void initForLapack(){
 void init(){
   /* init coordinates of mass points */
   int root_N = sqrt(N);
-  int looked_idx = 0;
-  int arrayl_idx = 0;
   int i=0,j=0;
 
   genGraph();
@@ -192,12 +199,12 @@ void init(){
   }
   for(i=0;i<M;i++){
     l[i] = natu_l;
-    // 500〜1000のランダムな実数
-    k[i] = (double)rand()/RAND_MAX*500.0+500;
+    // k_bottomからk_topまでのランダムな実数
+    k[i] = (double)rand()/RAND_MAX*(k_top-k_bottom)+k_bottom;
     //k[i] = 100.0;
-    // 0~0.1のランダムな実数
-    gamma1[i] = (double)rand()/RAND_MAX*0.1;
-    printf("gamma=%f, k=%f\n",gamma1[i],k[i]);
+    // gamma1_bottomからgamma1_topまでのランダムな実数
+    gamma1[i] = (double)rand()/RAND_MAX*(gamma1_top-gamma1_bottom)+gamma1_bottom;
+  //  printf("gamma=%f, k=%f\n",gamma1[i],k[i]);
   }
   for(i=0;i<N;i++){
     m[i] = 1.0;
@@ -227,6 +234,12 @@ void init(){
       p2l_mat[i][j] = -1;
     }
   }
+}
+
+void initFiles(){
+  int looked_idx = 0;
+  int arrayl_idx = 0;
+  int i,j;
   /* make coodinates data files */
   for(i=0;i<N;i++){
     sprintf(filename1,"%s/points/point%d.dat",dirname,i);
@@ -272,7 +285,7 @@ void init(){
   }
 
   /* make outputs.dat file */
-  sprintf(filename3,"%s/outputs.dat",dirname);
+  sprintf(filename3,"%s/results/outputs.dat",dirname);
   fp3 = fopen(filename3,"w");
   /* error handling */
   if( fp3 == NULL ){
@@ -284,6 +297,7 @@ void init(){
   fprintf(fp3,"#n  ms_narma2 ms_narma10  ms_narma20  narma2  narma10  narma20\n");
   fclose(fp3);
 }
+
 //隣接行列を生成
 void genGraph(){
   int root_N = sqrt(N);
@@ -513,7 +527,7 @@ void exportOutputs(int time_steps){
   int i;
 /*  printf("outputs of MS for\n");
   printf("NARMA2   NARMA10   NARMA20:\n"); */
-  sprintf(filename3,"%s/outputs.dat",dirname);
+  sprintf(filename3,"%s/results/outputs.dat",dirname);
   fp3 = fopen(filename3,"a");
   if( fp3 == NULL ){
     printf("loop count n=%d : cannot open file %s\n",time_steps,filename3);
@@ -526,6 +540,51 @@ void exportOutputs(int time_steps){
   fprintf(fp3,"%f  %f  %f",o_nrm2[0],o_nrm10[0],o_nrm20[0]);
   fprintf(fp3,"\n");
   fclose(fp3);
+}
+
+void exportResults(){
+  int i;
+  /* make results.dat file (parameters and results) */
+  sprintf(filename4,"%s/results/results.txt",dirname);
+  fp4 = fopen(filename4,"w");
+  /* error handling */
+  if( fp4 == NULL ){
+    printf("cannot open file %s\n",filename4);
+  }
+  else{
+    //    printf("open file %s\n",filename4);
+  }
+  fprintf(fp4,"WASHOUT = %d, LEARNING = %d, EVAL = %d\n",WASHOUT,LEARNING,EVAL);
+//  fclose(fp4);
+//  fp4 = fopen(filename4,"a");
+  fprintf(fp4,"N = %d, M = %d\n",N,M);
+  fprintf(fp4,"dt = %f\nT_input = %d\n",dt,T_input);
+  fprintf(fp4,"natural_length = %f\n",natu_l);
+
+  fprintf(fp4,"fixed_points_index: ");
+  for(i=0;i<fixed_num;i++){
+    fprintf(fp4,"%d ",fixed_p[i]);
+  }
+
+  fprintf(fp4,"\ninput_points_index: ");
+  for(i=0;i<in_num;i++){
+    fprintf(fp4,"%d ",in_p[i]);
+  }
+
+  fprintf(fp4,"\ninput_weights: ");
+  for(i=0;i<in_num;i++){
+    fprintf(fp4,"%f ",w_in[i]);
+  }
+
+  fprintf(fp4,"\nrange_of_k: %f~%f",k_bottom,k_top);
+  fprintf(fp4,"\nrange_of_gamma: %f~%f",gamma1_bottom,gamma1_top);
+
+  fprintf(fp4,"\n---index_of_l[i]  k  gamma---");
+  for(i=0;i<M;i++){
+    fprintf(fp4,"\n%d   %f   %f",i,k[i],gamma1[i]);
+  }
+  fprintf(fp4,"\n");
+    fclose(fp4);
 }
 
 void rk4(){
