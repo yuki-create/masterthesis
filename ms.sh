@@ -9,8 +9,17 @@ mkdir -p ${str1}/springs
 mkdir -p ${str1}/results # outputs.dat, parameters and results
 #echo simulating ms...
 ./ms #./ms N NSTEP
+<< COMMENTOUT
 echo drowing animation...
 gnuplot -persist <<-EOFMarker
   load "./outputs.plt" ;
+  exit ;
+EOFMarker
+COMMENTOUT
+# plot lyapunov exponent
+echo drowing animation...
+gnuplot -persist <<-EOFMarker
+  set xrange [1000:16000] ;
+  plot "./results/le.dat" with l
   exit ;
 EOFMarker
