@@ -6,11 +6,11 @@
 #include "lapacke.h"
 #include "cblas.h"
 //////// parameters to be costomized ////////
-#define N 49 // number of mass points
-#define M 84 // number of springs (root_N-1)*root_N*2
+#define N 36 // number of mass points
+#define M 60 // number of springs (root_N-1)*root_N*2
 const char *dirname = ".";
 /* washout, learning, evaluating term (time steps) */
-const int WASHOUT = 10000;
+const int WASHOUT = 5000;
 const int LEARNING = 5000;
 const int EVAL = 1000;
 /* simulating time steps */
@@ -21,13 +21,13 @@ const int T_input = 1; // adjust frequency of input signal
 // const double gamma1 = 0.1;
 // const double k = 100.0;
 const double natu_l = 1.0;
-const double w_in[] = {1.0,2.0,3.0,4.0};
+const double w_in[] = {1.0,1.0};
 const double k_bottom = 100.0;
-const double k_top = 100.0;
-const double gamma1_bottom = 0.0;
-const double gamma1_top = 0.0;
-int fixed_p[] = {0}; // index array of fixed points
-int in_p[] = {10,20,30,40}; // index array of input points
+const double k_top = 2000.0;
+const double gamma1_bottom = 0.0001;
+const double gamma1_top = 0.001;
+int fixed_p[] = {0,M-1}; // index array of fixed points
+int in_p[] = {20,70}; // index array of input points
 double k[M];
 double gamma1[M];
 int seed_flag = 0;
@@ -75,7 +75,9 @@ double err[3]; // normilized mean squaered errors
 
 /* variables for lyapunov exponent */
 double lyapunov = 0.0;
+double sum_log = 0.0;
 double initial_d = 0.0; // initial distance of two systems
+double norm2_pre = 0.0;
 
 /* parameters for file I/O */
 FILE *fp1; // for export coodinates
@@ -130,7 +132,6 @@ int main(int argc, char *argv[]){
   fixed_num = sizeof fixed_p / sizeof fixed_p[0];
   in_num = sizeof in_p / sizeof in_p[0];
   if(seed_flag == 1) srand((unsigned)time(NULL));
-
   init();
   initFiles();
   initForLapack();
@@ -292,10 +293,16 @@ void initMinuteInitialStates(){
   double delta1,delta2;
   for(i=0;i<root_N;i++){
     for(j=0;j<root_N;j++){
-      delta1 = (double)rand()/RAND_MAX*0.000000000002 - 0.000000000001;
-      delta2 = (double)rand()/RAND_MAX*0.000000000002 - 0.000000000001;
+    /*  delta1 = (double)rand()/RAND_MAX*0.0000000002 - 0.0000000001;
+      delta2 = (double)rand()/RAND_MAX*0.0000000002 - 0.0000000001;
       x_d[root_N*i+j] = j + delta1;
-      y_d[root_N*i+j] = i + delta2;
+      y_d[root_N*i+j] = i + delta2; */
+      x_d[root_N*i+j] = j;
+      y_d[root_N*i+j] = i;
+      if(i==3&&j==3){
+        x_d[root_N*i+j] = j + 0.000000000001;
+        y_d[root_N*i+j] = i + 0.000000000001;
+      }
     }
   }
   getSpringLength(l_d,x_d,y_d);
@@ -303,6 +310,7 @@ void initMinuteInitialStates(){
         tmp += pow( (l[i]-l_d[i]), 2.0 );
     }
     initial_d = sqrt(tmp);
+    norm2_pre = sqrt(tmp);
 }
 
 void initFiles(){
@@ -624,17 +632,25 @@ void getErr(){
   printf("\n");
 }
 
-/* 2つの出力の差　引数(l,l_d) */
+/* 2つの出力の差　引数(i,l,l_d) */
 void updateLyapunovExponent(int time_steps, double *array1, double *array2){
   int i=0;
   double tmp=0;
   double norm2=0.0;
   double real_time = dt*time_steps;
   for(i=0;i<M;i++){
-      tmp += pow( (array1[i]-array2[i]), 2.0 );
+      tmp = tmp + pow( (array1[i]-array2[i]), 2.0 );
   }
   norm2 = sqrt(tmp);
-  lyapunov = log(norm2/initial_d)/real_time;
+  // overflowを防ぐ
+/*  for(i=0;i<M;i++){
+    array2[i] = array1[i] + (initial_d/norm2)*(array2[i]-array1[i]);
+  } */
+/*  sum_log = sum_log + log(norm2/initial_d);
+  lyapunov = sum_log/real_time; */
+  sum_log = sum_log + log(norm2/norm2_pre) / log(2.0);
+  lyapunov = sum_log/real_time;
+  norm2_pre = norm2;
 }
 
 void exportOutputs(int time_steps){
