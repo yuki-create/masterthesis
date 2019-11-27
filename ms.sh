@@ -19,7 +19,7 @@ COMMENTOUT
 # plot lyapunov exponent
 echo drowing animation...
 gnuplot -persist <<-EOFMarker
-  set xrange [1000:11000] ;
+  set xrange [100:11000] ;
   plot "./results/le.dat" with l
   exit ;
 EOFMarker

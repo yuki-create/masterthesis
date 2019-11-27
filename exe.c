@@ -6,8 +6,8 @@
 #include "lapacke.h"
 #include "cblas.h"
 //////// parameters to be costomized ////////
-#define N 25 // number of mass points
-#define M 40 // number of springs (root_N-1)*root_N*2
+#define N 36 // number of mass points
+#define M 60 // number of springs (root_N-1)*root_N*2
 const char *dirname = ".";
 /* washout, learning, evaluating term (time steps) */
 const int WASHOUT = 5000;
@@ -22,16 +22,16 @@ const int T_input = 1; // adjust frequency of input signal
 // const double k = 100.0;
 const double natu_l = 1.0;
 const double w_in[] = {1.0};
-const double k_bottom = 100.0;
-const double k_top = 5000.0;
-const double gamma1_bottom = 0.001;
-const double gamma1_top = 0.01;
-int fixed_p[] = {4,20}; // index array of fixed points
-int in_p[] = {N-1}; // index array of input points
+const double k_bottom = 10.0;
+const double k_top = 1000.0;
+const double gamma1_bottom = 0.0;
+const double gamma1_top = 0.0;
+int fixed_p[] = {5,30}; // index array of fixed points
+int in_p[] = {0}; // index array of input points
 // initial purtubation to index 0
 double k[M];
 double gamma1[M];
-int seed_flag = 0;
+int seed_flag = 1;
 
 //////// variables dosen't need to be costomized ////////
 int fixed_num = 0; // number of fixed points (elements of fixed_p)
@@ -118,6 +118,7 @@ void exportCoordinates(int time_steps);
 void exportLength(int time_steps);
 void exportOutputs(int time_steps);
 void exportResults(); // results and parameters
+void exportLeErr();
 void exportLyapunovExponent(int time_steps);
 double Fx(double *array1, double *array2, double *array3, int idx1);
 double Fy(double *array1, double *array2, double *array3, int idx1);
@@ -153,7 +154,7 @@ int main(int argc, char *argv[]){
     getSpringLength(l,x,y); //系の出力となるばねの長さを求め、配列l[]を更新
     getSpringLength(l_d,x_d,y_d);
     updateLyapunovExponent(n,l,l_d);
-    exportLyapunovExponent(n);
+  //  exportLyapunovExponent(n);
   }
 
   /* learning phase */
@@ -171,7 +172,7 @@ int main(int argc, char *argv[]){
     //    exportCoordinates(n); //座標のデータをファイル出力
     //    exportLength(n); //ばねの長さをファイル出力
     updateLearnigData(n);
-    exportLyapunovExponent(n);
+  //  exportLyapunovExponent(n);
   }
 
   /* determin W_out[M] */
@@ -194,11 +195,12 @@ int main(int argc, char *argv[]){
     updateOutputsMS();
     updateLyapunovExponent(n,l,l_d);
     updateErr();
-    exportOutputs(n); //近似結果を出力
-    exportLyapunovExponent(n);
+//    exportOutputs(n); //近似結果を出力
+  //  exportLyapunovExponent(n);
   }
   getErr();
-  exportResults(); // 近似誤差と設定パラメータの出力
+  exportLeErr();
+//  exportResults(); // 近似誤差と設定パラメータの出力
   printf("Lyapunov exponent: %f\n",lyapunov);
   //  test_updateLearningData();
   free(T);
@@ -302,19 +304,22 @@ void initMinuteInitialStates(){
       y_d[root_N*i+j] = i + delta2; */
       x_d[root_N*i+j] = j;
       y_d[root_N*i+j] = i;
-      if(i==0&&j==0){
+    /*  if(i==0&&j==0){
         x_d[root_N*i+j] = j + 0.000000000001;
-        y_d[root_N*i+j] = i + 0.000000000001;
+        y_d[root_N*i+j] = i + 0.000000000001; */
       }
     }
-  }
+    x_d[N-1] = x_d[N-1] + 0.000000000001;
+    y_d[N-1] = y_d[N-1] + 0.000000000001;
+
   getSpringLength(l_d,x_d,y_d);
     for(i=0;i<M;i++){
         tmp += pow( (l[i]-l_d[i]), 2.0 );
     }
     initial_d = sqrt(tmp);
     norm2_pre = sqrt(tmp);
-}
+  }
+
 
 void initFiles(){
   int looked_idx = 0;
@@ -640,7 +645,8 @@ void updateLyapunovExponent(int time_steps, double *array1, double *array2){
   int i=0;
   double tmp=0;
   double norm2=0.0;
-  double real_time = dt*time_steps;
+  // double real_time = dt*time_steps;
+  double d_timesteps = (double)time_steps;
   for(i=0;i<M;i++){
       tmp = tmp + pow( (array1[i]-array2[i]), 2.0 );
   }
@@ -650,10 +656,10 @@ void updateLyapunovExponent(int time_steps, double *array1, double *array2){
     array2[i] = array1[i] + (initial_d/norm2)*(array2[i]-array1[i]);
   }
   sum_log = sum_log + log(norm2/initial_d);
-  lyapunov = sum_log/time_steps;
-  // sum_log = sum_log + log(norm2/norm2_pre) / log(2.0);
-//  lyapunov = sum_log/real_time;
-//  norm2_pre = norm2;
+  lyapunov = sum_log/d_timesteps;
+/*  sum_log = sum_log + log(norm2/norm2_pre) / log(2.0);
+  lyapunov = sum_log/real_time;
+  norm2_pre = norm2; */
 }
 
 void exportOutputs(int time_steps){
@@ -683,6 +689,16 @@ void exportLyapunovExponent(int time_steps){
   }
   fprintf(fp5,"%d  %f\n",time_steps, lyapunov);
   fclose(fp5);
+}
+
+void exportLeErr(){
+  sprintf(filename6,"%s/results/le_err.dat",dirname);
+  fp6 = fopen(filename6,"a");
+  if( fp6 == NULL ){
+    printf("cannot open file %s\n",filename6);
+  }
+  fprintf(fp6,"%f %f %f %f %d %d %f %f %f %f\n",lyapunov,err[0],err[1],err[2],N,M,k_bottom,k_top,gamma1_bottom,gamma1_top);
+  fclose(fp6);
 }
 
 void exportResults(){
