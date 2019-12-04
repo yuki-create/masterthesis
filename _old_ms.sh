@@ -9,17 +9,24 @@ mkdir -p ${str1}/points
 mkdir -p ${str1}/springs
 mkdir -p ${str1}/results # outputs.dat, parameters and results
 echo -n > ${str1}/results/le.dat
-./test
+./test > log2.txt
 #echo comple completed.
 # plot lyapunov exponent
+<< COMMENTOUT
 echo drowing animation...
 gnuplot -persist <<-EOFMarker
-  set xrange [100:11000] ;
-  plot "./results/le.dat" with l
+  plot "./log2.dat" using 1:2 w l ;
+  replot "./log2.dat" using 1:3 w l ;
   exit ;
 EOFMarker
 
-<< COMMENTOUT
+gnuplot -persist <<-EOFMarker
+  set xrange [100:11000] ;
+  plot "./results/le.dat" w l ;
+  exit ;
+EOFMarker
+
+
 gnuplot -persist <<-EOFMarker
   plot "test_length.txt" using 1:2 w l ;
   replot "test_length.txt" using 1:3 w l ;

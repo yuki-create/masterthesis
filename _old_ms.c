@@ -17,15 +17,15 @@ const int EVAL = 1000;
 const int NSTEP = WASHOUT+LEARNING+EVAL;
 
 const double dt = 0.0025;
-const int T_input = 10; // adjust frequency of input signal
+const int T_input = 1; // adjust frequency of input signal
 // const double gamma1 = 0.1;
 // const double k = 100.0;
 const double natu_l = 1.0;
 const double w_in[] = {1.0};
-const double k_bottom = 100.0;
-const double k_top = 1000.0;
-const double gamma1_bottom = 0.001;
-const double gamma1_top = 0.01;
+const double k_bottom = 500.0;
+const double k_top = 1100.0;
+const double gamma1_bottom = 0.0;
+const double gamma1_top = 0.06;
 int fixed_p[] = {4}; // index array of fixed points
 int in_p[] = {N-1}; // index array of input points
 // initial purtubation to index 0
@@ -154,6 +154,7 @@ int main(int argc, char *argv[]){
     rk4MinuteInitialStates(); // 初期値をずらした質点ばね系の更新
     getSpringLength(l,x,y); //系の出力となるばねの長さを求め、配列l[]を更新
     getSpringLength(l_d,x_d,y_d);
+    //printf("%d %14.12lf %14.12lf\n", n,l[0],l_d[0]);
     updateLyapunovExponent(n,l,l_d);
     exportLyapunovExponent(n);
   //   printf("%d %f %f\n",n,sum_log,lyapunov);
@@ -203,7 +204,7 @@ int main(int argc, char *argv[]){
   }
   getErr();
   exportResults(); // 近似誤差と設定パラメータの出力
-  printf("Lyapunov exponent: %f\n",lyapunov);
+//  printf("Lyapunov exponent: %f\n",lyapunov);
   //  test_updateLearningData();
   free(T);
   free(L);
@@ -305,8 +306,8 @@ void initMinuteInitialStates(){
       x_d[root_N*i+j] = j;
       y_d[root_N*i+j] = i;
       if(i==0&&j==0){
-        x_d[root_N*i+j] = j + 0.000000000001;
-        y_d[root_N*i+j] = i + 0.000000000001;
+        x_d[root_N*i+j] = j + 0.00000001;
+        y_d[root_N*i+j] = i + 0.00000001;
       }
     }
   }
@@ -553,6 +554,7 @@ void updateNarma20(){
     tmp += o_nrm20[20-i];
   }
   o_nrm20[0] = 0.3*o_nrm20[1] + 0.05*o_nrm20[1]*tmp + 1.5*input[19]*input[0] + 0.1;
+  printf("%lf\n",o_nrm20[0]);
 }
 
 void getSpringLength(double *array_l, double *array_x, double *array_y){
@@ -647,11 +649,11 @@ void updateLyapunovExponent(int time_steps, double *array1, double *array2){
       tmp = tmp + pow( (array1[i]-array2[i]), 2.0 );
   }
   norm2 = sqrt(tmp);
-  printf("nomrm2=%14.12lf\n", norm2);
+  // printf("norm2=%14.12lf\n", norm2);
   // overflowを防ぐ
-  for(i=0;i<M;i++){
-    array2[i] = array1[i] + (initial_d/norm2)*(array2[i]-array1[i]);
-  }
+  //for(i=0;i<M;i++){
+  //  array2[i] = array1[i] + (initial_d/norm2)*(array2[i]-array1[i]);
+  // }
   sum_log = sum_log + log(norm2/initial_d);
   lyapunov = sum_log/d_timesteps;
   // sum_log = sum_log + log(norm2/norm2_pre) / log(2.0);

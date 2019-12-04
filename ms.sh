@@ -10,12 +10,34 @@ mkdir -p ${str1}/points
 mkdir -p ${str1}/springs
 mkdir -p ${str1}/results # outputs.dat, parameters and results
 echo -n > ${str1}/results/le.dat
-./ms 10 9 800 100 0.01 0.01
+./ms 10 6 800 100 0.03 0.01 > log1.dat
+
 gnuplot -persist <<-EOFMarker
+  set terminal x11 1
+  plot "./log1.dat" using 1:2 w l ;
+  replot "./log1.dat" using 1:5 w l ;
+  set terminal x11 2
+  plot "./log1.dat" using 1:3 w l ;
+  replot "./log1.dat" using 1:6 w l ;
+  set terminal x11 3
+  plot "./log1.dat" using 1:4 w l ;
+  replot "./log1.dat" using 1:7 w l ;
+  exit ;
+EOFMarker
+
+<< COMMENTOUT
+gnuplot -persist <<-EOFMarker
+  plot "./log1.dat" using 1:2 w l ;
+  replot "./log1.dat" using 1:3 w l ;
+  exit ;
+EOFMarker
+gnuplot -persist <<-EOFMarker
+  set xrange [100:11000] ;
   plot "./results/le.dat" w l ;
   exit ;
 EOFMarker
-<< COMMENTOUT
+
+
 gnuplot -persist <<-EOFMarker
   plot "test_length.txt" using 1:2 w l ;
   replot "test_length.txt" using 1:3 w l ;
