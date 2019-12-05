@@ -8,7 +8,6 @@ str1="."
 mkdir -p ${str1}/points
 mkdir -p ${str1}/springs
 mkdir -p ${str1}/results # outputs.dat, parameters and results
-echo -n > ${str1}/results/le.dat
 ./test > log2.txt
 #echo comple completed.
 # plot lyapunov exponent

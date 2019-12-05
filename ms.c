@@ -22,24 +22,20 @@ double Fy(double *array1, double *array2, double *array3, int idx1, int N, int G
 double f(double *array1, double *array2, int idx1, int idx2, int N, int p2l_mat[N][N], int M, double k[M], double natu_l);
 void getSpringLength(double *array_l, double *array_x, double *array_y, int N, int G[N][N]);
 double updateLyapunovExponent(int time_steps, double *array1, double *array2, int M, double initial_d);
-void exportLyapunovExponent(int time_steps, double lyapunov, char *dirname, FILE *fp5, char filename5[40]);
+void exportLyapunovExponent(int time_steps, double dt, double lyapunov, char *dirname, FILE *fp5, char filename5[40]);
 void updateLearnigData(int time_steps, int M, int WASHOUT, int LEARNING, double l[M],double o_nrm2[3], double o_nrm10[11], double o_nrm20[21], double *T, double *L);
 void getWeights(int M, int LEARNING, double *L, double *T, double *W_out);
 void printWeights(int M, double *W_out);
 void updateOutputsMS(int M, double o_ms[3], double l[M], double *W_out);
-/*
-void initFiles(char *dirname, FILE *fp1,FILE *fp2,FILE *fp3,FILE *fp5, char filename1, char filename2, char filename3, char filename5);
-void initSpringLength(int size, int natu_l, double array_l[size], double array_l_d[size]);
-void initForLapack(double *T, double *L, double *W_out, int LEARNING, int M);
-void test_initForLapack(double *T, double *L, double *W_out, int LEARNING,int M);
-void mallocDoubleArray(double *p, int size1, int size2);
-*/
+void exportCoordinates(int time_steps,char *dirname, FILE *fp1,  char *filename1, int N, double x[N], double y[N]);
+void exportLength(int time_steps, double dt, char *dirname, FILE *fp2, char *filename2, int N, int G[N][N], int M, double l[M]);
+void exportOutputs(int time_steps, double dt, char *dirname, FILE *fp3, char *filename3, double o_ms[3], double o_nrm2[3], double o_nrm10[11], double o_nrm20[21]);
 
 int main(int argc, char *argv[]){
   //////// parameters to be costomized ////////
   int seed_flag = 0;
-  int debug_flag = 0;
-  const int repeat = atoi(argv[1]);
+  int debug_flag = atoi(argv[1]);
+  // const int repeat = atoi(argv[1]);
   const int N = pow( atoi(argv[2]), 2.0); // number of mass points
   const int M = (sqrt(N)-1)*sqrt(N)*2; // number of springs (root_N-1)*root_N*2
 // washout, learning, evaluating term (time steps)
@@ -109,7 +105,7 @@ int main(int argc, char *argv[]){
   // double norm2_pre = 0.0;
 
   // parameters for file I/O
-  char *dirname = ".";
+  char *dirname = argv[7];
   FILE *fp1; // for export coodinates
   FILE *fp2; // for export length of springs
   FILE *fp3; // for outputs of MS and NARMA after learning
@@ -183,7 +179,7 @@ int main(int argc, char *argv[]){
         //    printf("open file %s\n",filename1);
       }
       fprintf(fp1,"x[%d] y[%d]\n",i,i);
-      fprintf(fp1,"%f %f\n",x[i],y[i]); //coordinates at n=0 (t=0)初期値を書き込み
+      fprintf(fp1,"%.12lf %.12lf\n",x[i],y[i]); //coordinates at n=0 (t=0)初期値を書き込み
       fclose(fp1);
     }
 
@@ -201,7 +197,7 @@ int main(int argc, char *argv[]){
           }
           fprintf(fp2,"# l[%d]( l_%d(t) ) connection: point%d-point%d\n",arrayl_idx,arrayl_idx,i,j);
           fprintf(fp2,"n t l_%d(t)\n",arrayl_idx);
-          fprintf(fp2,"0 0 %f\n",l[arrayl_idx]);
+          fprintf(fp2,"0 0 %.12lf\n",l[arrayl_idx]);
           fclose(fp2);
           arrayl_idx++;
         }
@@ -217,7 +213,7 @@ int main(int argc, char *argv[]){
     else{
       //    printf("open file %s\n",filename3);
     }
-    fprintf(fp3,"#n  ms_narma2 ms_narma10  ms_narma20  narma2  narma10  narma20\n");
+    fprintf(fp3,"#n  real_time  ms_narma2  ms_narma10  ms_narma20  narma2  narma10  narma20\n");
     fclose(fp3);
 
     // make le.dat file
@@ -229,7 +225,7 @@ int main(int argc, char *argv[]){
     else{
       //    printf("open file %s\n",filename3);
     }
-    fprintf(fp5,"#n  lyapunov_exponential\n");
+    fprintf(fp5,"#n  real_time  lyapunov_exponential\n");
     fclose(fp5);
     //printGraph(N,G,p2l_mat);
   }
@@ -240,14 +236,14 @@ int main(int argc, char *argv[]){
      updateNarma(input, o_nrm2, o_nrm10, o_nrm20);
      rk4(N, dt, x, y, u, v, fixed_num, fixed_p, G, p2l_mat, force_x, m, M, k, gamma1, natu_l);
       rk4(N, dt, x_d, y_d, u_d, v_d, fixed_num, fixed_p, G, p2l_mat, force_x, m, M, k, gamma1, natu_l);
-    //  printf("%d %14.12lf %14.12lf\n",n, l[2],l_d[2]);
-    // printf("%d %f %f %f %f\n",n,x[8],y[8],x_d[8],y_d[8] );
-    // printf("%d %f %f\n",n,input[0], force_x[N-1] );
      getSpringLength(l,x,y,N,G);
      getSpringLength(l_d,x_d,y_d,N,G);
      lyapunov = updateLyapunovExponent(n,l,l_d, M, initial_d);
-     exportLyapunovExponent(n, lyapunov, dirname, fp5, filename5);
-    //printf("%d %f %f\n",n,l[M-1], l_d[M-1]);
+     if(debug_flag==1){
+       exportCoordinates(n,dirname,fp1,filename1, N, x, y);
+       exportLength(n, dt, dirname, fp2, filename2, N, G, M, l);
+       exportLyapunovExponent(n, dt, lyapunov, dirname, fp5, filename5);
+     }
   }
   // 学習
   for(n=WASHOUT;n<WASHOUT+LEARNING;n++){
@@ -258,9 +254,12 @@ int main(int argc, char *argv[]){
       getSpringLength(l,x,y,N,G);
       getSpringLength(l_d,x_d,y_d,N,G);
       updateLearnigData(n, M, WASHOUT, LEARNING, l, o_nrm2, o_nrm10, o_nrm20, T, L);
-    //  printf("%d %14.12lf %14.12lf\n",n-WASHOUT, T[n-WASHOUT],L[n-WASHOUT]);
       lyapunov = updateLyapunovExponent(n,l,l_d, M, initial_d);
-      exportLyapunovExponent(n, lyapunov, dirname, fp5, filename5);
+      if(debug_flag==1){
+        exportCoordinates(n,dirname,fp1,filename1, N, x, y);
+        exportLength(n, dt, dirname, fp2, filename2, N, G, M, l);
+        exportLyapunovExponent(n, dt, lyapunov, dirname, fp5, filename5);
+      }
   }
   getWeights(M, LEARNING, L, T, W_out);
   //printWeights(M, W_out);
@@ -273,8 +272,6 @@ int main(int argc, char *argv[]){
       getSpringLength(l,x,y,N,G);
       getSpringLength(l_d,x_d,y_d,N,G);
       updateOutputsMS(M, o_ms, l, W_out);
-      printf("%d %f  %f  %f ",n,o_nrm2[0],o_nrm10[0],o_nrm20[0]);
-      printf("%f %f %f\n",o_ms[0],o_ms[1],o_ms[2]);
     // updateErr
     squared_err[0] += pow(o_nrm2[0]-o_ms[0], 2.0);
     squared_err[1] += pow(o_nrm10[0]-o_ms[1], 2.0);
@@ -284,16 +281,69 @@ int main(int argc, char *argv[]){
     normalizer[2] += pow(o_nrm20[0],2.0);
 
       lyapunov = updateLyapunovExponent(n,l,l_d, M, initial_d);
-      exportLyapunovExponent(n, lyapunov, dirname, fp5, filename5);
+      if(debug_flag==1){
+        exportCoordinates(n,dirname,fp1,filename1, N, x, y);
+        exportLength(n, dt, dirname, fp2, filename2, N, G, M, l);
+        exportOutputs(n, dt, dirname, fp3, filename3, o_ms, o_nrm2, o_nrm10, o_nrm20);
+        exportLyapunovExponent(n, dt, lyapunov, dirname, fp5, filename5);
+      }
 
   }
   // getErr
-  //printf("NMSE:\nNARMA2    10    20\n");
-  //for(i=0;i<3;i++){
-  //  err[i] = squared_err[i] / normalizer[i];
-  //  printf("%f    ",err[i]);
-  //}
-  //printf("\n");
+  printf("lyapunov exponent = %lf\n", lyapunov);
+  printf("NMSE:\nNARMA2    10    20\n");
+  for(i=0;i<3;i++){
+    err[i] = squared_err[i] / normalizer[i];
+    printf("%f    ",err[i]);
+  }
+  printf("\n");
+
+    // make results.dat file (parameters and results)
+    sprintf(filename4,"%s/results/results.txt",dirname);
+    fp4 = fopen(filename4,"w");
+    if( fp4 == NULL ){
+      printf("cannot open file %s\n",filename4);
+    }
+    else{
+    fprintf(fp4, "lyapunov exponent = %lf\n", lyapunov);
+    fprintf(fp4,"NMSE:\nNARMA2    10    20\n");
+    for(i=0;i<3;i++){
+      fprintf(fp4,"%f    ",err[i]);
+    }
+
+    fprintf(fp4,"\n---parameters---\n");
+    fprintf(fp4,"WASHOUT = %d, LEARNING = %d, EVAL = %d\n",WASHOUT,LEARNING,EVAL);
+  //  fclose(fp4);
+  //  fp4 = fopen(filename4,"a");
+    fprintf(fp4,"N = %d, M = %d\n",N,M);
+    fprintf(fp4,"dt = %f\nT_input = %d\n",dt,T_input);
+    fprintf(fp4,"natural_length = %f\n",natu_l);
+
+    fprintf(fp4,"fixed_points_index: ");
+    for(i=0;i<fixed_num;i++){
+      fprintf(fp4,"%d ",fixed_p[i]);
+    }
+
+    fprintf(fp4,"\ninput_points_index: ");
+    for(i=0;i<in_num;i++){
+      fprintf(fp4,"%d ",in_p[i]);
+    }
+
+    fprintf(fp4,"\ninput_weights: ");
+    for(i=0;i<in_num;i++){
+      fprintf(fp4,"%f ",w_in[i]);
+    }
+
+    fprintf(fp4,"\nk: mu = %f, sigma = %f",mu_k, sigma_k);
+    fprintf(fp4,"\ngamma: mu = %f, sigma = %f",mu_g, sigma_g);
+
+    fprintf(fp4,"\n---index_of_l[i]  k  gamma---");
+    for(i=0;i<M;i++){
+      fprintf(fp4,"\n%d   %f   %f",i,k[i],gamma1[i]);
+    }
+    fprintf(fp4,"\n");
+      fclose(fp4);
+    }
 
   free(T);
   free(L);
@@ -667,13 +717,13 @@ double updateLyapunovExponent(int time_steps, double *array1, double *array2, in
   return(sum_log/d_timesteps);
 }
 
-void exportLyapunovExponent(int time_steps, double lyapunov, char *dirname, FILE *fp5, char filename5[40]){
+void exportLyapunovExponent(int time_steps, double dt, double lyapunov, char *dirname, FILE *fp5, char filename5[40]){
   sprintf(filename5,"%s/results/le.dat",dirname);
   fp5 = fopen(filename5,"a");
   if( fp5 == NULL ){
     printf("loop count n=%d : cannot open file %s\n",time_steps,filename5);
   }
-  fprintf(fp5,"%d  %f\n",time_steps, lyapunov);
+  fprintf(fp5,"%d  %lf %.12lf\n",time_steps, dt, lyapunov);
   fclose(fp5);
 }
 
@@ -733,6 +783,58 @@ void updateOutputsMS(int M, double o_ms[3], double l[M], double *W_out){
       0.0, o_ms, inco_ms);
 }
 
+void exportCoordinates(int time_steps,char *dirname, FILE *fp1,  char *filename1, int N, double x[N], double y[N]){
+  int i=0;
+  for(i=0;i<N;i++){
+    sprintf(filename1,"%s/points/point%d.dat",dirname,i);
+    fp1 = fopen(filename1,"a");
+    if( fp1 == NULL ){
+      printf("loop count n=%d : cannot open file %s\n",time_steps,filename1);
+    }
+    //  printf("%f %f\n",x[0],y[0]);
+    fprintf(fp1,"%.12lf %.12lf\n",x[i],y[i]);
+    fclose(fp1);
+  }
+}
+void exportLength(int time_steps, double dt, char *dirname, FILE *fp2, char *filename2, int N, int G[N][N], int M, double l[M]){
+  int looked_idx = 0;
+  int arrayl_idx = 0;
+  int i=0,j=0;
+  double real_time=time_steps*dt;
+  for(i=0;i<N;i++){
+    for(j=looked_idx;j<N;j++){
+      if(G[i][j] == 1){
+        sprintf(filename2,"%s/springs/length%d.dat",dirname,arrayl_idx);
+        fp2 = fopen(filename2,"a");
+        if( fp2 == NULL ){
+          printf("cannot open file %s\n",filename2);
+        }
+        fprintf(fp2,"%d %lf %.12lf\n",time_steps,real_time,l[arrayl_idx]);
+        fclose(fp2);
+        arrayl_idx++;
+      }
+    }
+    looked_idx++;
+  }
+}
+void exportOutputs(int time_steps, double dt, char *dirname, FILE *fp3, char *filename3, double o_ms[3], double o_nrm2[3], double o_nrm10[11], double o_nrm20[21] ){
+  int i;
+  double real_time = time_steps*dt;
+  sprintf(filename3,"%s/results/outputs.dat",dirname);
+  fp3 = fopen(filename3,"a");
+  if( fp3 == NULL ){
+    printf("loop count n=%d : cannot open file %s\n",time_steps,filename3);
+  }
+  // time_step, 質点バネ系による近似, NARMAモデルの出力値を1行に出力
+  fprintf(fp3,"%d  %lf  ",time_steps,real_time);
+  for(i=0;i<3;i++){
+    fprintf(fp3,"%.12lf  ",o_ms[i]);
+  }
+  fprintf(fp3,"%.12lf  %.12lf  %.12lf",o_nrm2[0],o_nrm10[0],o_nrm20[0]);
+  fprintf(fp3,"\n");
+  fclose(fp3);
+}
+
 double rand_normal(double mu, double sigma){
       double z=sqrt( -2.0*log(Uniform()) ) * sin( 2.0*M_PI*Uniform() );
       return mu + sigma*z;
@@ -740,129 +842,3 @@ double rand_normal(double mu, double sigma){
 double Uniform( void ){
     return ((double)rand()+1.0)/((double)RAND_MAX+2.0);
 }
-
-/*
-
-void initFiles(char *dirname, FILE *fp1,FILE *fp2,FILE *fp3,FILE *fp5, char filename1, char filename2, char filename3, char filename5){
-  int looked_idx = 0;
-  int arrayl_idx = 0;
-  int i,j;
-  // make coodinates data files
-  for(i=0;i<N;i++){
-    sprintf(filename1,"%s/points/point%d.dat",dirname,i);
-    fp1 = fopen(filename1,"w");
-    if( fp1 == NULL ){
-      printf("cannot open file %s\n",filename1);
-    }
-    else{
-      //    printf("open file %s\n",filename1);
-    }
-    fprintf(fp1,"x[%d] y[%d]\n",i,i);
-    fprintf(fp1,"%f %f\n",x[i],y[i]); //coordinates at n=0 (t=0)初期値を書き込み
-    fclose(fp1);
-  }
-
-  // make length of springs data files
-  for(i=0;i<N;i++){
-    for(j=looked_idx;j<N;j++){
-      if(G[i][j] == 1){
-        sprintf(filename2,"%s/springs/length%d.dat",dirname,arrayl_idx);
-        fp2 = fopen(filename2,"w");
-        if( fp2 == NULL ){
-          printf("cannot open file %s\n",filename2);
-        }
-        else{
-          //    printf("open file %s\n",filename2);
-        }
-        fprintf(fp2,"# l[%d]( l_%d(t) ) connection: point%d-point%d\n",arrayl_idx,arrayl_idx,i,j);
-        fprintf(fp2,"n t l_%d(t)\n",arrayl_idx);
-        fprintf(fp2,"0 0 %f\n",l[arrayl_idx]);
-        fclose(fp2);
-        arrayl_idx++;
-      }
-    }
-    looked_idx++;
-  }
-  // make outputs.dat file
-  sprintf(filename3,"%s/results/outputs.dat",dirname);
-  fp3 = fopen(filename3,"w");
-  if( fp3 == NULL ){
-    printf("cannot open file %s\n",filename3);
-  }
-  else{
-    //    printf("open file %s\n",filename3);
-  }
-  fprintf(fp3,"#n  ms_narma2 ms_narma10  ms_narma20  narma2  narma10  narma20\n");
-  fclose(fp3);
-
-  // make le.dat file
-  sprintf(filename5,"%s/results/le.dat",dirname);
-  fp5 = fopen(filename5,"w");
-  if( fp5 == NULL ){
-    printf("cannot open file %s\n",filename5);
-  }
-  else{
-    //    printf("open file %s\n",filename3);
-  }
-  fprintf(fp5,"#n  lyapunov_exponential\n");
-  fclose(fp5);
-}
-
-// lapackの列要素ごとの並びに対応させる配列の初期化
-void initForLapack(double *T, double *L, double *W_out, int LEARNING, int M){
-  int i,j=0;
-  T = malloc(LEARNING*3*sizeof(double));
-  L = malloc(LEARNING*M*sizeof(double));
-  W_out = malloc(M*3*sizeof(double));
-  for(j=0;j<3;j++){
-    for(i=0;i<LEARNING;i++){
-      T[j*LEARNING+i] = 0.0;
-    }
-  }
-  for(j=0;j<M;j++){
-    for(i=0;i<LEARNING;i++){
-      L[j*LEARNING+i] = 0.0;
-    }
-  }
-  for(j=0;j<3;j++){
-    for(i=0;i<M;i++){
-      W_out[j*M+i] = 0.0;
-    }
-  }
-}
-// （(仮想）二次元配列へのポインタ、行数、列数)のメモリを確保し、0で初期化
-void mallocDoubleArray(double *p, int size1, int size2){
-  int i,j=0;
-  p = malloc(size1*size2*sizeof(double));
-  for(j=0;j<size2;j++){
-    for(i=0;i<size1;i++){
-      p[j*size1+i] = 0.0;
-    }
-  }
-}
-void test_initForLapack(double *T, double *L, double *W_out, int LEARNING,int M){
-  int i,j=0;
-  for(j=0;j<3;j++){
-    for(i=0;i<LEARNING;i++){
-      printf("%f\n", T[j*LEARNING+i]);
-    }
-  }
-  for(j=0;j<M;j++){
-    for(i=0;i<LEARNING;i++){
-      printf("%f\n",L[j*LEARNING+i] );
-    }
-  }
-  for(j=0;j<3;j++){
-    for(i=0;i<M;i++){
-      printf("%f\n",W_out[j*M+i] );
-    }
-  }
-}
-
-void initSpringLength(int size, int natu_l, double array_l[size], double array_l_d[size]){
-  int i;
-  for(i=0;i<size;i++){
-    array_l[i] = natu_l;
-    array_l_d[i]  = natu_l;
-}
-*/
