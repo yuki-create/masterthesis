@@ -9,7 +9,17 @@
 *fp5 - results/le.dat (lyapunov exponentの収束)
 fp6 - 何回もやるよ
 
-次はpltファイル（アニメーション、springs xM, outputs x3, lyapunov exponent）
+ファイル出力が完成。
+今、ばねの繋がりもGIFアニメに書き出そうとしている。
+->隣接行列のデータをシェルから読み込めば、pltに渡せない。
+pltファイルからは1行ずつ読み込んで配列化できない。
+詰み。
+
+・rk4での配列の宣言、初期化を軽くする
+・updateLyapunovでLAPACKEを使う
+->入力時系列を乱数で作る
+->MCのテストを実装する
+->NARMA30まで実装しちゃう
 
 ・バグ
 T_input=10だと、NARMA20が発散する。

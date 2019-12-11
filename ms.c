@@ -30,6 +30,7 @@ void updateOutputsMS(int M, double o_ms[3], double l[M], double *W_out);
 void exportCoordinates(int time_steps,char *dirname, FILE *fp1,  char *filename1, int N, double x[N], double y[N]);
 void exportLength(int time_steps, double dt, char *dirname, FILE *fp2, char *filename2, int N, int G[N][N], int M, double l[M]);
 void exportOutputs(int time_steps, double dt, char *dirname, FILE *fp3, char *filename3, double o_ms[3], double o_nrm2[3], double o_nrm10[11], double o_nrm20[21]);
+void exportGraph(char *dirname, int size, int graph[size][size]);
 
 int main(int argc, char *argv[]){
   //////// parameters to be costomized ////////
@@ -133,6 +134,7 @@ int main(int argc, char *argv[]){
     }
   }
   genGraph(N,G);
+//  exportGraph(dirname,N,G);
   initP2lMat(N,G,p2l_mat);
   initCoordinates(N,x,y,x_d,y_d);
   initSpringParameters(M,mu_k,sigma_k,mu_g,sigma_g,k,gamma1);
@@ -170,7 +172,7 @@ int main(int argc, char *argv[]){
     int i,j;
     // make coodinates data files
     for(i=0;i<N;i++){
-      sprintf(filename1,"%s/points/point%d.dat",dirname,i);
+      sprintf(filename1,"%s/data/points/point%d.dat",dirname,i);
       fp1 = fopen(filename1,"w");
       if( fp1 == NULL ){
         printf("cannot open file %s\n",filename1);
@@ -187,7 +189,7 @@ int main(int argc, char *argv[]){
     for(i=0;i<N;i++){
       for(j=looked_idx;j<N;j++){
         if(G[i][j] == 1){
-          sprintf(filename2,"%s/springs/length%d.dat",dirname,arrayl_idx);
+          sprintf(filename2,"%s/data/springs/length%d.dat",dirname,arrayl_idx);
           fp2 = fopen(filename2,"w");
           if( fp2 == NULL ){
             printf("cannot open file %s\n",filename2);
@@ -205,7 +207,7 @@ int main(int argc, char *argv[]){
       looked_idx++;
     }
     // make outputs.dat file
-    sprintf(filename3,"%s/results/outputs.dat",dirname);
+    sprintf(filename3,"%s/data/outputs.dat",dirname);
     fp3 = fopen(filename3,"w");
     if( fp3 == NULL ){
       printf("cannot open file %s\n",filename3);
@@ -217,7 +219,7 @@ int main(int argc, char *argv[]){
     fclose(fp3);
 
     // make le.dat file
-    sprintf(filename5,"%s/results/le.dat",dirname);
+    sprintf(filename5,"%s/data/le.dat",dirname);
     fp5 = fopen(filename5,"w");
     if( fp5 == NULL ){
       printf("cannot open file %s\n",filename5);
@@ -429,6 +431,22 @@ void printGraph(int size, int graph[size][size], int table[size][size]){
     }
     printf("\n");
   }
+}
+
+void exportGraph(char *dirname, int size, int graph[size][size]){
+  int i,j;
+  FILE *fp;
+  char filename[40];
+  sprintf(filename,"%s/results/graph.dat",dirname);
+  fp = fopen(filename,"w");
+  for(i=0;i<size;i++){
+    //行毎に要素を出力
+    for(j=0;j<size;j++){
+      fprintf(fp,"%d\n",graph[i][j]);
+    }
+  //  fprintf(fp,"\n");
+  }
+  fclose(fp);
 }
 
 void initArray1dim(int size, double array[size], double initial_value){
@@ -718,12 +736,13 @@ double updateLyapunovExponent(int time_steps, double *array1, double *array2, in
 }
 
 void exportLyapunovExponent(int time_steps, double dt, double lyapunov, char *dirname, FILE *fp5, char filename5[40]){
-  sprintf(filename5,"%s/results/le.dat",dirname);
+  double real_time = time_steps*dt;
+  sprintf(filename5,"%s/data/le.dat",dirname);
   fp5 = fopen(filename5,"a");
   if( fp5 == NULL ){
     printf("loop count n=%d : cannot open file %s\n",time_steps,filename5);
   }
-  fprintf(fp5,"%d  %lf %.12lf\n",time_steps, dt, lyapunov);
+  fprintf(fp5,"%d  %lf %.12lf\n",time_steps, real_time, lyapunov);
   fclose(fp5);
 }
 
@@ -786,7 +805,7 @@ void updateOutputsMS(int M, double o_ms[3], double l[M], double *W_out){
 void exportCoordinates(int time_steps,char *dirname, FILE *fp1,  char *filename1, int N, double x[N], double y[N]){
   int i=0;
   for(i=0;i<N;i++){
-    sprintf(filename1,"%s/points/point%d.dat",dirname,i);
+    sprintf(filename1,"%s/data/points/point%d.dat",dirname,i);
     fp1 = fopen(filename1,"a");
     if( fp1 == NULL ){
       printf("loop count n=%d : cannot open file %s\n",time_steps,filename1);
@@ -804,7 +823,7 @@ void exportLength(int time_steps, double dt, char *dirname, FILE *fp2, char *fil
   for(i=0;i<N;i++){
     for(j=looked_idx;j<N;j++){
       if(G[i][j] == 1){
-        sprintf(filename2,"%s/springs/length%d.dat",dirname,arrayl_idx);
+        sprintf(filename2,"%s/data/springs/length%d.dat",dirname,arrayl_idx);
         fp2 = fopen(filename2,"a");
         if( fp2 == NULL ){
           printf("cannot open file %s\n",filename2);
@@ -820,7 +839,7 @@ void exportLength(int time_steps, double dt, char *dirname, FILE *fp2, char *fil
 void exportOutputs(int time_steps, double dt, char *dirname, FILE *fp3, char *filename3, double o_ms[3], double o_nrm2[3], double o_nrm10[11], double o_nrm20[21] ){
   int i;
   double real_time = time_steps*dt;
-  sprintf(filename3,"%s/results/outputs.dat",dirname);
+  sprintf(filename3,"%s/data/outputs.dat",dirname);
   fp3 = fopen(filename3,"a");
   if( fp3 == NULL ){
     printf("loop count n=%d : cannot open file %s\n",time_steps,filename3);
