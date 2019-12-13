@@ -1,30 +1,14 @@
 ・差分
-次は出力を整備する。point, length, leは、小数点以下12桁記録。
-日時/points -> point[i].dat
-日時/springs -> spring[i].dat
-*fp1 - point[i].dat
-*fp2 - spring[i].dat
-*fp3 - results/outputs.dat (narma modelの出力など)
-*fp4 - results/results.txt 一回の思考でのパラメータと近似誤差
-*fp5 - results/le.dat (lyapunov exponentの収束)
-fp6 - 何回もやるよ
+NARMA30の実装
+ずらす初期値、ずらす点の決め方について
+initial_dが2ノルムと同じオーダーになるように設定する。
 
-ファイル出力が完成。
-今、ばねの繋がりもGIFアニメに書き出そうとしている。
-->隣接行列のデータをシェルから読み込めば、pltに渡せない。
-pltファイルからは1行ずつ読み込んで配列化できない。
-詰み。
+次やること
+同じk,gammaのパラメータセットで、固定点を除いた34回、初期座標をずらす点を変えて試行する。
+(ms.c内で繰り返す)
 
 ・rk4での配列の宣言、初期化を軽くする
-・updateLyapunovでLAPACKEを使う
-->入力時系列を乱数で作る
+->入力時系列を乱数で作る -失敗。narmaモデルの出力もホワイトノイズのようになる。近似誤差はnan。
 ->MCのテストを実装する
-->NARMA30まで実装しちゃう
 
 ・バグ
-T_input=10だと、NARMA20が発散する。
-lの変位が小さすぎて、W＿outが大きくなる。スケーリングが必要。
-自然長が1.0あるので、バイアスも必要では。
-
-いろいろファイルを書き出すと、一回の実行に1分程度かかる。
-updateLyapunovでLAPACKEを使ったノルム計算をしたい。
