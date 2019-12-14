@@ -11,7 +11,7 @@ double Uniform( void );
 void genGraph(int size, int graph[size][size]);
 void printGraph(int size, int graph[size][size], int table[size][size]);
 void initArray1dim(int size, double array[size],double initial_value);
-void initCoordinates(int size, double array_x[size], double array_y[size], double array_x_d[size], double array_y_d[size], double delta, int d_idx, int fixed_num, int fixed_p[fixed_num]);
+void initCoordinates(double natu_l, int size, double array_x[size], double array_y[size], double array_x_d[size], double array_y_d[size], double delta, int d_idx, int fixed_num, int fixed_p[fixed_num]);
 void initSpringParameters(int size, double mu_k, double sigma_k,double mu_g, double sigma_g, double array_k[size], double array_g[size]);
 void initP2lMat(int size, int graph[size][size], int table[size][size]);
 void updateInput(int time_steps, double dt, int T_input, double input[30], int in_num, int in_p[in_num],int N, double force_x[N],double w_in[in_num], double x[N]);
@@ -23,12 +23,12 @@ double f(double *array1, double *array2, int idx1, int idx2, int N, int p2l_mat[
 void getSpringLength(double *array_l, double *array_x, double *array_y, int N, int G[N][N]);
 double updateLyapunovExponent(int time_steps, double *array1, double *array2, int M, double initial_d);
 void exportLyapunovExponent(int time_steps, double dt, double lyapunov, char *dirname, FILE *fp5, char filename5[40]);
-void updateLearnigData(int time_steps, int M, int WASHOUT, int LEARNING, double l[M],double o_nrm2[3], double o_nrm10[11], double o_nrm20[21], double o_nrm30[31], double *T, double *L);
+void updateLearnigData(int time_steps, int M, int WASHOUT, int LEARNING, double l[M+1],double o_nrm2[3], double o_nrm10[11], double o_nrm20[21], double o_nrm30[31], double *T, double *L);
 void getWeights(int M, int LEARNING, double *L, double *T, double *W_out);
 void printWeights(int M, double *W_out);
-void updateOutputsMS(int M, double o_ms[4], double l[M], double *W_out);
+void updateOutputsMS(int M, double o_ms[4], double l[M+1], double *W_out);
 void exportCoordinates(int time_steps,char *dirname, FILE *fp1,  char *filename1, int N, double x[N], double y[N]);
-void exportLength(int time_steps, double dt, char *dirname, FILE *fp2, char *filename2, int N, int G[N][N], int M, double l[M], double l_d[M]);
+void exportLength(int time_steps, double dt, char *dirname, FILE *fp2, char *filename2, int N, int G[N][N], int M, double l[M+1], double l_d[M]);
 void exportOutputs(int time_steps, double dt, char *dirname, FILE *fp3, char *filename3, double o_ms[4], double o_nrm2[3], double o_nrm10[11], double o_nrm20[21], double o_nrm30[31]);
 void exportInput(int time_steps, double dt, char *dirname, FILE *fp7, char *filename7, double input[30]);
 void exportGraph(char *dirname, int size, int graph[size][size]);
@@ -41,20 +41,20 @@ int main(int argc, char *argv[]){
   const int N = pow( atoi(argv[2]), 2.0); // number of mass points
   const int M = (sqrt(N)-1)*sqrt(N)*2; // number of springs (root_N-1)*root_N*2
 // washout, learning, evaluating term (time steps)
-  const int WASHOUT = 5000;
+  const int WASHOUT = 1000;
   const int LEARNING = 5000;
-  const int EVAL = 1000;
+  const int EVAL = 5000;
   // simulating time steps
   const int NSTEP = WASHOUT+LEARNING+EVAL;
 
   const double dt = 0.0025;
   const int T_input = 1; // adjust frequency of input signal
   const double natu_l = 1.0;
-  double w_in[] = {1.0,1.0};
-  int fixed_p[] = {sqrt(N)-1,N-sqrt(N)}; // index array of fixed points
-  int in_p[] = {0,N-1}; // index array of input points
-  int d_idx = 20; // 初期値をずらす質点のindex
-  double delta=0.0000000001; // x座標とy座標のずらす量
+  double w_in[] = {1.0};
+  int fixed_p[] = {}; // index array of fixed points
+  int in_p[] = {0}; // index array of input points
+  int d_idx = N-1; // 初期値をずらす質点のindex
+  double delta=0.00000000001; // x座標とy座標のずらす量
 
   //////// variables dosen't need to be costomized ////////
   double k[M];
@@ -71,7 +71,7 @@ int main(int argc, char *argv[]){
   double y[N];
   double v[N]; // dy/dt
   double m[N];
-  double l[M]; // length of spring at time n*dt as outpus.
+  double l[M+1]; // length of spring at time n*dt as outpus.
   int G[N][N]; // adjacency matrix (symmetric matrix)
   int p2l_mat[N][N]; // point index x[idx1],x[idx2] -> spring index p2l_mat[idx1][idx2] (upper triangular matrix)
   double force_x[N];
@@ -143,7 +143,8 @@ int main(int argc, char *argv[]){
   genGraph(N,G);
 //  exportGraph(dirname,N,G);
   initP2lMat(N,G,p2l_mat);
-  initCoordinates(N,x,y,x_d,y_d, delta, d_idx, fixed_num, fixed_p);
+  //  printGraph(N,G,p2l_mat);
+  initCoordinates(natu_l, N,x,y,x_d,y_d, delta, d_idx, fixed_num, fixed_p);
   initSpringParameters(M,mu_k,sigma_k,mu_g,sigma_g,k,gamma1);
   getSpringLength(l,x,y,N,G);
   getSpringLength(l_d,x_d,y_d,N,G);
@@ -154,31 +155,33 @@ int main(int argc, char *argv[]){
 //  printf("%14.12lf\n",initial_d);
   // lapackのライブラリを使う配列の初期化。行列の列ごとに一次元配列に格納。
   T = malloc(LEARNING*4*sizeof(double));
-  L = malloc(LEARNING*M*sizeof(double));
-  W_out = malloc(M*4*sizeof(double));
+  L = malloc(LEARNING*(M+1)*sizeof(double));
+  W_out = malloc((M+1)*4*sizeof(double));
   // 考えている行列の、列ごとに要素を代入する
   for(j=0;j<4;j++){
     for(i=0;i<LEARNING;i++){
       T[j*LEARNING+i] = 0.0;
     }
   }
-  for(j=0;j<M;j++){
+  for(j=0;j<(M+1);j++){
     for(i=0;i<LEARNING;i++){
       L[j*LEARNING+i] = 0.0;
     }
   }
   for(j=0;j<4;j++){
-    for(i=0;i<M;i++){
-      W_out[j*M+i] = 0.0;
+    for(i=0;i<(M+1);i++){
+      W_out[j*(M+1)+i] = 0.0;
     }
   }
+  l[M]=1.0;
+
   // 出力波形を見たりする時、ファイルを初期化
   if(debug_flag == 1){
     int looked_idx = 0;
     int arrayl_idx = 0;
     int i,j;
     // make coodinates data files
-    for(i=0;i<N;i++){
+  /*  for(i=0;i<N;i++){
       sprintf(filename1,"%s/data/points/point%d.dat",dirname,i);
       fp1 = fopen(filename1,"w");
       if( fp1 == NULL ){
@@ -190,7 +193,7 @@ int main(int argc, char *argv[]){
       fprintf(fp1,"x[%d] y[%d]\n",i,i);
       fprintf(fp1,"%.12lf %.12lf\n",x[i],y[i]); //coordinates at n=0 (t=0)初期値を書き込み
       fclose(fp1);
-    }
+    } */
 
     // make length of springs data files
     for(i=0;i<N;i++){
@@ -205,13 +208,18 @@ int main(int argc, char *argv[]){
             //    printf("open file %s\n",filename2);
           }
           fprintf(fp2,"# l[%d]( l_%d(t) ) connection: point%d-point%d\n",arrayl_idx,arrayl_idx,i,j);
-          fprintf(fp2,"n t l_%d(t)      l_differential_%d(t)\n",arrayl_idx, arrayl_idx);
+          fprintf(fp2,"# n t l_%d(t)      l_differential_%d(t)\n",arrayl_idx, arrayl_idx);
           fclose(fp2);
           arrayl_idx++;
         }
       }
       looked_idx++;
     }
+    sprintf(filename2,"%s/data/springs/bias.dat",dirname);
+    fp2 = fopen(filename2,"w");
+    fprintf(fp2,"# n t bias ( l[%d] )\n",M);
+    fclose(fp2);
+
     // make outputs.dat file
     sprintf(filename3,"%s/data/outputs.dat",dirname);
     fp3 = fopen(filename3,"w");
@@ -245,6 +253,7 @@ int main(int argc, char *argv[]){
     fprintf(fp7,"#n  real_time  input\n");
     fclose(fp7);
   }
+
   // 初期化終わり　init end
   // washout
   for(n=0;n<WASHOUT;n++){
@@ -257,7 +266,7 @@ int main(int argc, char *argv[]){
      getSpringLength(l_d,x_d,y_d,N,G);
      lyapunov = updateLyapunovExponent(n,l,l_d, M, initial_d);
      if(debug_flag==1){
-       exportCoordinates(n,dirname,fp1,filename1, N, x, y);
+       // exportCoordinates(n,dirname,fp1,filename1, N, x, y);
        exportLength(n, dt, dirname, fp2, filename2, N, G, M, l, l_d);
        exportLyapunovExponent(n, dt, lyapunov, dirname, fp5, filename5);
        exportInput(n, dt, dirname, fp7, filename7, input);
@@ -274,7 +283,7 @@ int main(int argc, char *argv[]){
       updateLearnigData(n, M, WASHOUT, LEARNING, l, o_nrm2, o_nrm10, o_nrm20, o_nrm30, T, L);
       lyapunov = updateLyapunovExponent(n,l,l_d, M, initial_d);
       if(debug_flag==1){
-        exportCoordinates(n,dirname,fp1,filename1, N, x, y);
+        // exportCoordinates(n,dirname,fp1,filename1, N, x, y);
         exportLength(n, dt, dirname, fp2, filename2, N, G, M, l, l_d);
         exportLyapunovExponent(n, dt, lyapunov, dirname, fp5, filename5);
         exportInput(n, dt, dirname, fp7, filename7, input);
@@ -302,7 +311,7 @@ int main(int argc, char *argv[]){
     normalizer[3] += pow(o_nrm30[0],2.0);
       lyapunov = updateLyapunovExponent(n,l,l_d, M, initial_d);
       if(debug_flag==1){
-        exportCoordinates(n,dirname,fp1,filename1, N, x, y);
+        // exportCoordinates(n,dirname,fp1,filename1, N, x, y);
         exportLength(n, dt, dirname, fp2, filename2, N, G, M, l, l_d);
         exportOutputs(n, dt, dirname, fp3, filename3, o_ms, o_nrm2, o_nrm10, o_nrm20, o_nrm30);
         exportLyapunovExponent(n, dt, lyapunov, dirname, fp5, filename5);
@@ -344,9 +353,9 @@ int main(int argc, char *argv[]){
   //  fp4 = fopen(filename4,"a");
     fprintf(fp4,"N = %d, M = %d\n",N,M);
     fprintf(fp4,"differential_point_index: %d\n",d_idx);
-    fprintf(fp4,"differential_initial_value=%.12lf\n",delta);
-    fprintf(fp4,"initial_distance=%.12lf\n",initial_d);
-    fprintf(fp4,"2-norm=%.12lf\n",norm2);
+    fprintf(fp4,"%.12lf=differential_initial_value\n",delta);
+    fprintf(fp4,"%.12lf=initial_distance\n",initial_d);
+    fprintf(fp4,"%.12lf=2-norm\n",norm2);
     fprintf(fp4,"dt = %f\nT_input = %d\n",dt,T_input);
     fprintf(fp4,"natural_length = %f\n",natu_l);
 
@@ -485,7 +494,7 @@ void initArray1dim(int size, double array[size], double initial_value){
   }
 }
 // x_d[0],y_d[0]のみ初期値をずらす
-void initCoordinates(int size, double array_x[size], double array_y[size], double array_x_d[size], double array_y_d[size], double delta, int d_idx, int fixed_num, int fixed_p[fixed_num])
+void initCoordinates(double natu_l, int size, double array_x[size], double array_y[size], double array_x_d[size], double array_y_d[size], double delta, int d_idx, int fixed_num, int fixed_p[fixed_num])
 {
   // init coordinates of mass points
   int root_size = sqrt(size);
@@ -493,10 +502,10 @@ void initCoordinates(int size, double array_x[size], double array_y[size], doubl
   for(i=0;i<root_size;i++){
     for(j=0;j<root_size;j++){
   //    if(root_size*i+j == fixed_p[0] || root_size*i+j == fixed_p[1]){
-        array_x[root_size*i+j] = j;
-        array_y[root_size*i+j] = i;
-        array_x_d[root_size*i+j] = j;
-        array_y_d[root_size*i+j] = i;
+        array_x[root_size*i+j] = j*natu_l;
+        array_y[root_size*i+j] = i*natu_l;
+        array_x_d[root_size*i+j] = j*natu_l;
+        array_y_d[root_size*i+j] = i*natu_l;
     //  }
     //  else{
     //  array_x[root_size*i+j] = j;
@@ -537,16 +546,16 @@ void initP2lMat(int size, int graph[size][size], int table[size][size]){
 void updateInput(int time_steps, double dt, int T_input, double input[30], int in_num, int in_p[in_num],int N, double force_x[N],double w_in[in_num],double x[N]){
   int i=0;
   int idx=0;
-  double t = time_steps*dt/T_input;
+  double t = dt*time_steps/T_input;
   for(i=0;i<29;i++){
     input[29-i] = input[28-i];
   }
   input[0] = 0.2*sin(2.0*M_PI*2.11*t)*sin(2.0*M_PI*3.73*t)*sin(2.0*M_PI*4.33*t);
   // -0.5-0.5のランダムな実数
-  //input[0] = (double)rand()/RAND_MAX*0.4-0.2;
+  //input[0] = (double)rand()/RAND_MAX*-0.5;
   for(i=0;i<in_num;i++){
-    idx = in_p[i];
-    force_x[idx] = w_in[i]*input[0];
+     idx = in_p[i];
+     force_x[idx] = w_in[i]*input[0];
   }
 }
 
@@ -621,9 +630,7 @@ void rk4(int N, double dt, double x[N], double y[N], double u[N], double v[N], i
   }
   // update k1 vectors
   for(i=0;i<N;i++){
-    for(j=0;j<fixed_num;j++){
-      if(i==fixed_p[j]){ fixed_flag = 1; break; }
-    }
+//    for(j=0;j<fixed_num;j++){ if(i==fixed_p[j]){ fixed_flag = 1; break; }}
     if(fixed_flag == 0){
       ku1[i] = dt*Fx(x,y,u,i, N, G, p2l_mat, force_x, m, M, k, gamma1, natu_l);
       kx1[i] = dt*u[i];
@@ -651,9 +658,9 @@ void rk4(int N, double dt, double x[N], double y[N], double u[N], double v[N], i
   cblas_daxpy(N, 0.5, ky1, 1, tmp_y, 1);
 
   for(i=0;i<N;i++){
-    for(j=0;j<fixed_num;j++){
-      if(i==fixed_p[j]){ fixed_flag = 1; break; }
-    }
+  //  for(j=0;j<fixed_num;j++){
+    //  if(i==fixed_p[j]){ fixed_flag = 1; break; }
+    //}
     if(fixed_flag == 0){
       ku2[i] = dt*Fx(tmp_x,tmp_y,tmp_u,i, N, G, p2l_mat, force_x, m, M, k, gamma1, natu_l);
       kx2[i] = dt*tmp_u[i];
@@ -681,9 +688,9 @@ void rk4(int N, double dt, double x[N], double y[N], double u[N], double v[N], i
  cblas_daxpy(N, 0.5, ky2, 1, tmp_y, 1);
 
   for(i=0;i<N;i++){
-    for(j=0;j<fixed_num;j++){
-      if(i==fixed_p[j]){ fixed_flag = 1; break; }
-    }
+//    for(j=0;j<fixed_num;j++){
+//      if(i==fixed_p[j]){ fixed_flag = 1; break; }
+  //  }
     if(fixed_flag == 0){
       ku3[i] = dt*Fx(tmp_x,tmp_y,tmp_u,i, N, G, p2l_mat, force_x, m, M, k, gamma1, natu_l);
       kx3[i] = dt*tmp_u[i];
@@ -710,9 +717,9 @@ void rk4(int N, double dt, double x[N], double y[N], double u[N], double v[N], i
  cblas_daxpy(N, 0.5, kv3, 1, tmp_v, 1);
  cblas_daxpy(N, 0.5, ky3, 1, tmp_y, 1);
   for(i=0;i<N;i++){
-    for(j=0;j<fixed_num;j++){
-      if(i==fixed_p[j]){ fixed_flag = 1; break; }
-    }
+    //for(j=0;j<fixed_num;j++){
+    //  if(i==fixed_p[j]){ fixed_flag = 1; break; }
+    //}
     if(fixed_flag == 0){
       ku4[i] = dt*Fx(tmp_x,tmp_y,tmp_u,i, N, G, p2l_mat, force_x, m, M, k, gamma1, natu_l);
       kx4[i] = dt*tmp_u[i];
@@ -723,9 +730,9 @@ void rk4(int N, double dt, double x[N], double y[N], double u[N], double v[N], i
   }
   // update u,x,v,y ( time step n -> (n+1) )
   for(i=0;i<N;i++){
-    for(j=0;j<fixed_num;j++){
-      if(i==fixed_p[j]){ fixed_flag = 1; break; }
-    }
+  //  for(j=0;j<fixed_num;j++){
+  //    if(i==fixed_p[j]){ fixed_flag = 1; break; }
+  //  }
     if(fixed_flag == 0){
       u[i] = u[i] + ( ku1[i] + 2*ku2[i] + 2*ku3[i] + ku4[i] )/6;
       x[i] = x[i] + ( kx1[i] + 2*kx2[i] + 2*kx3[i] + kx4[i] )/6;
@@ -760,7 +767,7 @@ double Fy(double *array1, double *array2, double *array3, int idx1, int N, int G
       sum += f(array1,array2,idx1,idx2,N,p2l_mat,M,k, natu_l);
     }
   }
-  return ( sum  -  gamma1[arrayl_idx] * array3[idx1] ) / m[idx1];
+  return ( sum  - force_x[idx1] -  gamma1[arrayl_idx] * array3[idx1] ) / m[idx1];
 }
 
 double f(double *array1, double *array2, int idx1, int idx2, int N, int p2l_mat[N][N], int M, double k[M], double natu_l){
@@ -794,29 +801,32 @@ void getSpringLength(double *array_l, double *array_x, double *array_y, int N, i
 double updateLyapunovExponent(int time_steps, double *array1, double *array2, int M,  double initial_d){
   static double sum_log = 0.0;
   int i=0;
-  double tmp[M];
+//  double tmp[M];
+  double tmp=0.0;
   double norm2=0.0;
   double d_timesteps = (double)time_steps;
   int inc_array1=1;
   int inc_array2=1;
   int inc_tmp=1;
-  //for(i=0;i<M;i++){
-  //    tmp = tmp + pow( (array1[i]-array2[i]), 2.0 );
-    //  printf("%14.12lf %14.12lf\n", array1[i],array2[i]);
-  //}
-  //norm2 = sqrt(tmp);
+  for(i=0;i<M;i++){
+      tmp = tmp + pow( (array1[i]-array2[i]), 2.0 );
+      //printf("%14.12lf %14.12lf\n", array1[i],array2[i]);
+  }
+  norm2 = sqrt(tmp);
+
   // array1(l_d[M])を、tmpにコピー
-  cblas_dcopy(M, array1, inc_array1, tmp, inc_tmp);
+    //cblas_dcopy(M, array1, inc_array1, tmp, inc_tmp);
   // tmp = -array2+tmp
-  cblas_daxpy(M, -1.0, array2, inc_array2, tmp, inc_tmp);
+    //cblas_daxpy(M, -1.0, array2, inc_array2, tmp, inc_tmp);
   // tmpの2ノルムを求める
-  norm2 = cblas_dnrm2(M, tmp, 1);
+    //norm2 = cblas_dnrm2(M, tmp, 1);
+
   // printf("norm2=%14.12lf\n", norm2);
   // overflowを防ぐ
   // for(i=0;i<M;i++){ array2[i] = array1[i] + (initial_d/norm2)*(array2[i]-array1[i]); }
   // printf("nomrm2=%14.12lf   log(norm2/initial_d)=%14.12lf\n",norm2, log(norm2/initial_d));
   sum_log = sum_log + log(norm2/initial_d);
-  if(time_steps==1000) printf("%.12lf\n",norm2);
+  // if(time_steps==1000) printf("%.12lf\n",norm2);
   // printf("%14.12lf %14.12lf %14.12lf %14.12lf\n",norm2,initial_d,sum_log,sum_log/d_timesteps);
   return(sum_log/d_timesteps);
 }
@@ -832,14 +842,14 @@ void exportLyapunovExponent(int time_steps, double dt, double lyapunov, char *di
   fclose(fp5);
 }
 
-void updateLearnigData(int time_steps, int M, int WASHOUT, int LEARNING, double l[M],double o_nrm2[3], double o_nrm10[11], double o_nrm20[21],double o_nrm30[31], double *T, double *L){
+void updateLearnigData(int time_steps, int M, int WASHOUT, int LEARNING, double l[M+1],double o_nrm2[3], double o_nrm10[11], double o_nrm20[21],double o_nrm30[31], double *T, double *L){
   int i=0;
   T[time_steps-WASHOUT] = o_nrm2[0];
   T[time_steps-WASHOUT+LEARNING] = o_nrm10[0];
   T[time_steps-WASHOUT+LEARNING*2] = o_nrm20[0];
   T[time_steps-WASHOUT+LEARNING*3] = o_nrm30[0];
    // printf("%lf %lf %lf\n",T[time_steps-WASHOUT], T[time_steps-WASHOUT+LEARNING], T[time_steps-WASHOUT+LEARNING*2]);
-  for(i=0;i<M;i++){
+  for(i=0;i<(M+1);i++){
     L[time_steps-WASHOUT+LEARNING*i] = l[i];
   //    printf("%lf ",L[time_steps-WASHOUT+LEARNING*i]);
   }
@@ -857,11 +867,11 @@ void getWeights(int M, int LEARNING, double *L, double *T, double *W_out){
   //printf("%lf\n",T[i+ldT*j]);
 //}
 //}
-  info = LAPACKE_dgels(LAPACK_COL_MAJOR,'N',LEARNING,M,nrhs,L,ldL,T,ldT);
+  info = LAPACKE_dgels(LAPACK_COL_MAJOR,'N',LEARNING,M+1,nrhs,L,ldL,T,ldT);
 
   for(j=0;j<4;j++){
-    for(i=0;i<M;i++){
-      W_out[i+M*j] = T[i+ldT*j];
+    for(i=0;i<(M+1);i++){
+      W_out[i+(M+1)*j] = T[i+ldT*j];
     //  printf("%lf\n",W_out[i+M*j]);
     }
   }
@@ -871,20 +881,23 @@ void printWeights(int M, double *W_out){
   int i,j;
   printf("W_out:\n");
   printf("NARMA2  NARMA10 NARMA20 NARMA30\n");
-  for(i=0;i<M;i++){
+  for(i=0;i<(M+1);i++){
     for(j=0;j<4;j++){
-      printf("%15lf  ",W_out[i+M*j]);
+      printf("%15lf  ",W_out[i+(M+1)*j]);
     }
     printf("\n");
   }
 }
 
-void updateOutputsMS(int M, double o_ms[4], double l[M], double *W_out){
-  int ldW_out = M; //W_outの行数
+void updateOutputsMS(int M, double o_ms[4], double l[M+1], double *W_out){
+  int ldW_out = M+1; //W_outの行数
   int incl = 1;
   int inco_ms = 1;
+//  double tmp[M+1];
+//  cblas_dcopy(M+1, l, 1, tmp, 1);
+//  tmp[M]=1.0;
   // 行列W_outの行数, 列数（転置前）
-  cblas_dgemv(CblasColMajor,CblasTrans,M,4,
+  cblas_dgemv(CblasColMajor,CblasTrans,M+1,4,
     1.0, W_out, ldW_out, l, incl,
       0.0, o_ms, inco_ms);
 }
@@ -901,7 +914,7 @@ void exportCoordinates(int time_steps,char *dirname, FILE *fp1,  char *filename1
     fclose(fp1);
   }
 }
-void exportLength(int time_steps, double dt, char *dirname, FILE *fp2, char *filename2, int N, int G[N][N], int M, double l[M], double l_d[M]){
+void exportLength(int time_steps, double dt, char *dirname, FILE *fp2, char *filename2, int N, int G[N][N], int M, double l[M+1], double l_d[M]){
   int looked_idx = 0;
   int arrayl_idx = 0;
   int i=0,j=0;
@@ -921,6 +934,10 @@ void exportLength(int time_steps, double dt, char *dirname, FILE *fp2, char *fil
     }
     looked_idx++;
   }
+  sprintf(filename2,"%s/data/springs/bias.dat",dirname);
+  fp2 = fopen(filename2,"a");
+  fprintf(fp2,"%d %lf %.12lf\n",time_steps,real_time,l[arrayl_idx]);
+  fclose(fp2);
 }
 
 void exportOutputs(int time_steps, double dt, char *dirname, FILE *fp3, char *filename3, double o_ms[4], double o_nrm2[3], double o_nrm10[11], double o_nrm20[21],double o_nrm30[31] ){

@@ -5,8 +5,8 @@ gcc -L/Users/saki/lapack-3.8.0 ms.o -llapacke -llapack -lcblas -lblas -lgfortran
 # [0]./ms, [1]debug_flag [2]N(pow of integer), [3]mu_k, [4]sigma_k, [5]mu_g, [6]sigma_g, [7] dirname
 # 正規分布の muは平均、sigmaは標準偏差
 time=`date "+%m%d_%H%M%S"`
-#dirname1="./${time}"
-dirname1="delta-test"
+dirname1="./${time}"
+#dirname1="delta-test"
 N=6
 debug=1
 mu_k=1000
@@ -31,42 +31,21 @@ fi
 dirname2="${dirname1}/results/pictures"
 if [ $debug -eq 1 ] ; then
 
-<< COMMENTOUT
-gnuplot -persist <<-EOFMarker
-# data/springs/length[i].dat のプロット
-i=0
-set terminal png
-set xlabel 'real time'
-set xrange [0:2.5]
-  # data/springs/length[i].dat のプロット(ずらさない系lとずらした系l_dの比較用)
-  do for [i=0:$M-1]{
-  set out sprintf('$dirname2/convergence/l_%03d.png',i)
-  set ylabel sprintf('l_{%d}(t)',i)
-  plot sprintf('$dirname1/data/springs/length%d.dat',i) using 2:3 w l title sprintf('l_{%d}(t)',i), sprintf('$dirname1/data/springs/length%d.dat',i) using 2:4 w l title sprintf('dif-l_{%d}(t) (index:$d_idx)',i)
-  }
-  # results/le.dat　のプロット
-  set ylabel 'lyapunov exponent'
-  set output '$dirname2/le.png'
-  plot '$dirname1/data/le.dat' using 2:3 w l notitle
-
-  #
-  set terminal aqua
-  set output
-  exit ;
-  EOFMarker
-fi
-COMMENTOUT
-
 gnuplot -persist <<-EOFMarker
 set terminal png
 # data/springs/length[i].dat のプロット
 i=0
 set xlabel 'real time'
+set xrange [15:27.5]
 do for [i=0:$M-1]{
 set output sprintf('$dirname2/springs/l_%03d.png',i)
 set ylabel sprintf('l_{%d}(t)',i)
 plot sprintf('$dirname1/data/springs/length%d.dat',i) using 2:3 w l title sprintf('l_{%d}(t)',i)
 }
+set ylabel 'bias'
+set output '$dirname2/springs/bais.png'
+plot '$dirname1/data/springs/bias.dat' using 2:3 w l notitle
+
 
 # data/springs/length[i].dat のプロット(ずらさない系lとずらした系l_dの比較用)
 set xrange [0:2.5]
@@ -78,11 +57,13 @@ plot sprintf('$dirname1/data/springs/length%d.dat',i) using 2:3 w l title sprint
 
 # data/input.dat 入力時系列のプロット
 set ylabel 'I(t)'
-set xrange [25.0:27.5]
+set xrange [15:16.5]
 set output '$dirname2/input.png'
 plot '$dirname1/data/input.dat' using 2:3 w l notitle
 unset xrange
+
 # data/outputs.dat NARMAモデルと近似波形のプロット
+set xrange [15:27.5]
 set ylabel 'y(t)'
 set output '$dirname2/NARMA2.png'
 plot '$dirname1/data/outputs.dat' using 2:3 w l title "ms-NARMA2", '$dirname1/data/outputs.dat' using 2:7 w l title "NARMA2"
@@ -93,7 +74,7 @@ plot '$dirname1/data/outputs.dat' using 2:5 w l title "ms-NARMA20", '$dirname1/d
 set output '$dirname2/NARMA30.png'
 plot '$dirname1/data/outputs.dat' using 2:6 w l title "ms-NARMA30", '$dirname1/data/outputs.dat' using 2:10 w l title "NARMA30"
 
-set xrange [26.0:26.5]
+set xrange [15:16.5]
 set output '$dirname2/NARMA2_zoom.png'
 plot '$dirname1/data/outputs.dat' using 2:3 w l title "ms-NARMA2", '$dirname1/data/outputs.dat' using 2:7 w l title "NARMA2"
 set output '$dirname2/NARMA10_zoom.png'
@@ -109,6 +90,14 @@ set ylabel 'lyapunov exponent'
 set output '$dirname2/le.png'
 plot '$dirname1/data/le.dat' using 2:3 w l notitle
 
+#
+set terminal aqua
+set output
+exit ;
+EOFMarker
+fi
+
+<< COMMENTOUT
 # points/point[i].dat アニメーションの描画
 set term gif animate optimize delay 4 size 480,360
 set output '$dirname2/ms.gif'
@@ -133,3 +122,4 @@ set output
 exit ;
 EOFMarker
 fi
+COMMENTOUT
