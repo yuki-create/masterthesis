@@ -1,0 +1,28 @@
+・差分
+repeat, N,sigma_k,mu_k,sigma_g,mu_gをコマンドライン引数として受け取る。
+諸々の初期化の実装完了
+updateInput, updateNarmaの動作確認
+rk4の動作確認
+
+・バグ
+rk4()で、初期値をずらさないx,yの変異が、ほぼ直線。外力という入力方法はよくないのか？
+！座標がアレでも長さは振動しているかもしれない。
+！実装は正しそうなので、とりあえずこのまま。
+！やはりばねの長さも全く変異なし、おかしい！
+>T_input=1では、外力の変化を反映し切れていなかった
+
+----
+N=9
+const double dt = 0.0025;
+const int T_input = 10; // adjust frequency of input signal
+const double natu_l = 1.0;
+double w_in[] = {1.0};
+int fixed_p[] = {4}; // index array of fixed points
+int in_p[] = {N-1}; // index array of input points
+----
+ちょうど良さそう。
+
+計算結果を配列に格納するものは配列を引数で渡してvoid関数
+計算結果を変数に代入するものはdoubleで返す関数（値渡しなので）
+
+updateLyapunovExponentのnorm2がおかしい

@@ -1,0 +1,11 @@
+#define N 9 // number of mass points
+#define M 12 // number of springs (root_N-1)*root_N*2
+const int NSTEP = 10000; /* simulating time steps */
+const double gamma1 = 0.001;
+const double k = 100.0;
+const double natu_l = 1.0;
+const double w_in[] = {1.0};
+const double dt = 0.01;
+const int T_input = 1; // adjust frequency of input signal
+int fixed_p[] = {}; // index array of fixed points
+int in_p[] = {0}; // index array of input points

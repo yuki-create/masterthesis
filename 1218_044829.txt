@@ -1,0 +1,1 @@
+# mu_k, sigma_k, mu_g, sigma_g, le_avr, err_narma2, err_narma10, err_narma20, err_narma30

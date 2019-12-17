@@ -6,11 +6,11 @@ gcc -L/Users/saki/lapack-3.8.0 ms.o -llapacke -llapack -lcblas -lblas -lgfortran
 # 正規分布の muは平均、sigmaは標準偏差
 time=`date "+%m%d_%H%M%S"`
 dirname1="./${time}"
-#dirname1="delta-test"
+#dirname1="faster-test"
 N=6
-debug=1
+debug=0
 mu_k=1000
-sigma_k=300
+sigma_k=0
 mu_g=0.01
 sigma_g=0.003
 d_idx=0
@@ -26,17 +26,42 @@ mkdir -p ${dirname1}/results/pictures
 mkdir -p ${dirname1}/results/pictures/springs
 mkdir -p ${dirname1}/results/pictures/convergence
 fi
+echo '# N=$N, M=$M' > ${dirname1}.txt
+echo '# mu_k, sigma_k, mu_g, sigma_g, le_avr, err_narma2, err_narma10, err_narma20, err_narma30' >> ${dirname1}.txt
+for i in `seq 0 300`
+do
+sigma_k=$i
+echo "sigma_k=$sigma_k"
 ./ms $debug $N $mu_k $sigma_k $mu_g $sigma_g ${dirname1}
+done
 #./ms 1 8 1000 300 0.05 0.01 "./test"
-dirname2="${dirname1}/results/pictures"
+gnuplot -persist <<-EOFMarker
+set terminal png
+set xlabel 'lyapunov exponent'
+set ylabel 'err'
+set output '$dirname1-le-err-2.png'
+plot '$dirname1.txt' using 5:6 w p title 'NARMA2'
+set output '$dirname1-le-err-10.png'
+plot '$dirname1.txt' using 5:7 w p title 'NARMA10'
+set output '$dirname1-le-err-20.png'
+plot '$dirname1.txt' using 5:8 w p title 'NARMA20'
+set output '$dirname1-le-err-30.png'
+plot '$dirname1.txt' using 5:9 w p title 'NARMA30'
+#
+set terminal aqua
+set output
+exit ;
+EOFMarker
+
 if [ $debug -eq 1 ] ; then
+dirname2="${dirname1}/results/pictures"
 
 gnuplot -persist <<-EOFMarker
 set terminal png
 # data/springs/length[i].dat のプロット
 i=0
 set xlabel 'real time'
-set xrange [15:27.5]
+set xrange [0:27.5]
 do for [i=0:$M-1]{
 set output sprintf('$dirname2/springs/l_%03d.png',i)
 set ylabel sprintf('l_{%d}(t)',i)
@@ -57,7 +82,7 @@ plot sprintf('$dirname1/data/springs/length%d.dat',i) using 2:3 w l title sprint
 
 # data/input.dat 入力時系列のプロット
 set ylabel 'I(t)'
-set xrange [15:16.5]
+set xrange [15:17.5] #1000step
 set output '$dirname2/input.png'
 plot '$dirname1/data/input.dat' using 2:3 w l notitle
 unset xrange
@@ -74,7 +99,7 @@ plot '$dirname1/data/outputs.dat' using 2:5 w l title "ms-NARMA20", '$dirname1/d
 set output '$dirname2/NARMA30.png'
 plot '$dirname1/data/outputs.dat' using 2:6 w l title "ms-NARMA30", '$dirname1/data/outputs.dat' using 2:10 w l title "NARMA30"
 
-set xrange [15:16.5]
+set xrange [15:17.5] #1000step
 set output '$dirname2/NARMA2_zoom.png'
 plot '$dirname1/data/outputs.dat' using 2:3 w l title "ms-NARMA2", '$dirname1/data/outputs.dat' using 2:7 w l title "NARMA2"
 set output '$dirname2/NARMA10_zoom.png'
@@ -90,14 +115,6 @@ set ylabel 'lyapunov exponent'
 set output '$dirname2/le.png'
 plot '$dirname1/data/le.dat' using 2:3 w l notitle
 
-#
-set terminal aqua
-set output
-exit ;
-EOFMarker
-fi
-
-<< COMMENTOUT
 # points/point[i].dat アニメーションの描画
 set term gif animate optimize delay 4 size 480,360
 set output '$dirname2/ms.gif'
@@ -122,4 +139,3 @@ set output
 exit ;
 EOFMarker
 fi
-COMMENTOUT
