@@ -35,7 +35,7 @@ void exportGraph(char *dirname, int size, int graph[size][size]);
 
 int main(int argc, char *argv[]){
   //////// parameters to be costomized ////////
-  int seed_flag = 0;
+  int seed_flag = 1;
   int debug_flag = atoi(argv[1]);
   // const int repeat = atoi(argv[1]);
   const int N = pow( atoi(argv[2]), 2.0); // number of mass points
@@ -50,7 +50,7 @@ int main(int argc, char *argv[]){
   const double dt = 0.0025;
   const int T_input = 1; // adjust frequency of input signal
   const double natu_l = 1.0;
-  double w_in[] = {1.0};
+  double w_in[] = {10.0};
   int fixed_p[] = {}; // index array of fixed points
   int in_p[] = {0}; // index array of input points
   int d_idx = 0; // 初期値をずらす質点のindex
@@ -129,6 +129,10 @@ int main(int argc, char *argv[]){
   double err_avr[4] = {0.0};
 
   // 初期値の誤差を導入する点を変える時、一回だけやればいいもの
+
+// 初期化始まり　init start
+  if(seed_flag == 1) srand((unsigned)time(NULL));
+
   l = malloc((M+1)*sizeof(double));
   l_d = malloc(M*sizeof(double));
   // lapackのライブラリを使う配列の初期化。行列の列ごとに一次元配列に格納。
@@ -190,8 +194,6 @@ int main(int argc, char *argv[]){
 
   // 近似誤差を測る　
     d_idx=0;
-  // 初期化始まり　init start
-  if(seed_flag == 1) srand((unsigned)time(NULL));
 
   initArray1dim(N,u,0.0);
   initArray1dim(N,v,0.0);
@@ -469,7 +471,7 @@ if(debug_flag==1){
   }
   printf("\n");
 
-  sprintf(filename6,"%s.txt",dirname);
+  sprintf(filename6,"%s/data.txt",dirname);
   fp6 = fopen(filename6,"a");
   fprintf(fp6,"%lf  %lf  %lf  %lf  %.12lf   %.12lf   %.12lf   %.12lf   %.12lf\n",mu_k, sigma_k, mu_g, sigma_g, le_avr, err[0],err[1],err[2],err[3] );
   fclose(fp6);

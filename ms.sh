@@ -5,19 +5,19 @@ gcc -L/Users/saki/lapack-3.8.0 ms.o -llapacke -llapack -lcblas -lblas -lgfortran
 # [0]./ms, [1]debug_flag [2]N(pow of integer), [3]mu_k, [4]sigma_k, [5]mu_g, [6]sigma_g, [7] dirname
 # 正規分布の muは平均、sigmaは標準偏差
 time=`date "+%m%d_%H%M%S"`
-dirname1="./${time}"
-#dirname1="faster-test"
+#dirname1="./${time}"
+dirname1="k"
 N=6
-debug=0
+debug=1
 mu_k=1000
-sigma_k=0
-mu_g=0.01
-sigma_g=0.003
+sigma_k=300
+mu_g=0.5
+sigma_g=0.1
 d_idx=0
 L=$(($N**2)) #点の個数
 M=$(($(($(($N-1))*$N))*2)) # ばねの本数
-if [ $debug -eq 1 ] ; then
 mkdir -p ${dirname1}
+if [ $debug -eq 1 ] ; then
 mkdir -p ${dirname1}/data #outputs, le .dat
 mkdir -p ${dirname1}/data/points
 mkdir -p ${dirname1}/data/springs
@@ -26,32 +26,45 @@ mkdir -p ${dirname1}/results/pictures
 mkdir -p ${dirname1}/results/pictures/springs
 mkdir -p ${dirname1}/results/pictures/convergence
 fi
-echo '# N=$N, M=$M' > ${dirname1}.txt
-echo '# mu_k, sigma_k, mu_g, sigma_g, le_avr, err_narma2, err_narma10, err_narma20, err_narma30' >> ${dirname1}.txt
-for i in `seq 0 300`
-do
-sigma_k=$i
-echo "sigma_k=$sigma_k"
+#echo "# N=$N, M=$M" > ${dirname1}/data.txt
+#echo '# mu_k, sigma_k, mu_g, sigma_g, le_avr, err_narma2, err_narma10, err_narma20, err_narma30' >> ${dirname1}/data.txt
+#for i in `seq 1 100`
+#do
+#mu_g=`echo "scale=5; 5.0 / 100.0" | bc` #scale=小数点以下の桁数
+#mu_g=`echo "scale=5; $mu_g*$i" | bc`
+#sigma_g=`echo "scale=5; 1.0 / 100.0" | bc`
+#sigma_g=`echo "scale=5; $sigma_g*$i" | bc`
+#mu_k=$((10*$i))
+#sigma_k=$((3*$i))
+#for j in `seq 1 2` #同じパラメータで2回ずつ繰り返し
+#do
+#echo "mu_k=$mu_k, sigma_k=$sigma_k"
 ./ms $debug $N $mu_k $sigma_k $mu_g $sigma_g ${dirname1}
-done
-#./ms 1 8 1000 300 0.05 0.01 "./test"
+#done
+#done
+<< COMMENTOUT
 gnuplot -persist <<-EOFMarker
 set terminal png
 set xlabel 'lyapunov exponent'
 set ylabel 'err'
-set output '$dirname1-le-err-2.png'
-plot '$dirname1.txt' using 5:6 w p title 'NARMA2'
-set output '$dirname1-le-err-10.png'
-plot '$dirname1.txt' using 5:7 w p title 'NARMA10'
-set output '$dirname1-le-err-20.png'
-plot '$dirname1.txt' using 5:8 w p title 'NARMA20'
-set output '$dirname1-le-err-30.png'
-plot '$dirname1.txt' using 5:9 w p title 'NARMA30'
+set yrange [0:0.0001]
+set output 'k/le-err-2.png'
+plot 'k/data.txt' using 5:6 w p title 'NARMA2'
+set yrange [0:0.1]
+set output 'k/le-err-10.png'
+plot 'k/data.txt' using 5:7 w p title 'NARMA10'
+set yrange [0:0.1]
+set output 'k/le-err-20.png'
+plot 'k/data.txt' using 5:8 w p title 'NARMA20'
+set yrange [0:10]
+set output 'k/le-err-30.png'
+plot 'k/data.txt' using 5:9 w p title 'NARMA30'
 #
 set terminal aqua
 set output
 exit ;
 EOFMarker
+COMMENTOUT
 
 if [ $debug -eq 1 ] ; then
 dirname2="${dirname1}/results/pictures"
@@ -70,7 +83,6 @@ plot sprintf('$dirname1/data/springs/length%d.dat',i) using 2:3 w l title sprint
 set ylabel 'bias'
 set output '$dirname2/springs/bais.png'
 plot '$dirname1/data/springs/bias.dat' using 2:3 w l notitle
-
 
 # data/springs/length[i].dat のプロット(ずらさない系lとずらした系l_dの比較用)
 set xrange [0:2.5]
